@@ -8,6 +8,7 @@ import {
 } from './services/requestService'
 import { WorkOrderWithRequests } from './components/WorkOrderWithRequests'
 import { CreateWorkOrderModal } from './components/CreateWorkOrderModal'
+import { loadDomains } from './services/domainService'
 import {
   getWorkOrders,
   createWorkOrder,
@@ -65,10 +66,11 @@ async function loadAll() {
   setLoading(true)
   setErrorMessage(null)
   try {
-    const [wos, assigned, unassigned] = await Promise.all([
+    const [wos, assigned, unassigned, _domains] = await Promise.all([
       getWorkOrders(),
       getAssignedRequests(),
       getUnassignedRequests(),
+      loadDomains(),
     ])
     setWorkOrders(wos)
     setAssignedRequests(assigned)
