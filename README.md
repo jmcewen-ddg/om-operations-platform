@@ -1,1 +1,102 @@
-# om-operations-platform
+# Everything in this README.md is generated my Microsoft Copilot using Opus Claude.
+# Pretty much the entire code of this web application was generated my Microsoft Copilot using Opus Claude based on input from a non-programmer / developer. Even the ROADMAP.md and SPRINT_BACKLOG.md were drafted by the AI.
+# OM Operations Platform
+
+A district-aware web application for managing the full lifecycle of operations & maintenance (O&M) work — from request intake, through work order assignment, contractor execution, field inspection, and closeout. Built on ArcGIS Enterprise + SDE at Duplantis Design Group (DDG).
+
+---
+
+## What this repo contains
+
+A React + TypeScript single-page app (Vite) that authenticates against Portal for ArcGIS via OAuth and reads/writes against SDE-backed feature services for requests and work orders.
+
+- **`om-app/`** — the React/TypeScript app source
+  - `src/config/` — ArcGIS config (Portal URL, OAuth app ID)
+  - `src/services/` — REST service clients (`requestService.ts`, `workOrderService.ts`)
+  - `src/components/` — UI components (request list, work order list, assignment views)
+- **`SPRINT_BACKLOG.md`** — working task list, organized by epic
+- **`ROADMAP.md`** — vision, principles, phases, role model
+
+---
+
+## How it fits together
+
+```
+                ┌──────────────────────┐
+                │  Portal for ArcGIS   │
+                │  (OAuth + REST)      │
+                └──────────┬───────────┘
+                           │
+                           ▼
+┌─────────────┐    ┌──────────────────┐    ┌──────────────────┐
+│  React app  │───▶│  Feature Services│───▶│  SDE / SQL Server│
+│  (this repo)│    │  (om_request,    │    │  (triggers,      │
+│             │    │   om_work_order, │    │   archiving,     │
+│             │    │   *_notes)       │    │   relationships) │
+└─────────────┘    └──────────────────┘    └──────────────────┘
+                           │
+                           ▼
+                  ┌──────────────────┐
+                  │  Power Automate  │
+                  │  (notifications) │
+                  └──────────────────┘
+```
+
+The SDE geodatabase is the source of truth. Business rules live as close to the data as practical: domains, relationship classes, triggers, and archiving. The app is a thin, opinionated interface over that foundation.
+
+---
+
+## Local development
+
+This app is developed in **GitHub Codespaces** against the DDG Portal for ArcGIS instance.
+
+### First-time setup
+```bash
+cd om-app
+npm install
+```
+
+### Run the dev server
+```bash
+npm run dev
+```
+
+### Build for production
+```bash
+npm run build
+```
+
+---
+
+## Key design decisions
+
+- **Database-first.** The SDE schema and triggers own the rules. The app respects them; it does not work around them.
+- **District-aware by default.** Every view, action, and permission is scoped to a district. Cross-district work is explicit, not accidental.
+- **Auditable, not editable.** Notes are append-only in the UI. Edit history lives in SDE archive history if it's ever needed.
+- **Omniscient ≠ Omnipotent.** Admins can see everything across districts. Only developers can change everything.
+- **No direct SQL inserts on SDE-managed editable tables.** All edits go through ArcGIS-managed paths.
+
+---
+
+## Roles
+
+| Role | Scope | Permissions |
+|---|---|---|
+| Internal user | Assigned district(s) | Create, edit, assign within district |
+| Admin | All districts | Read-only across districts |
+| Dev | Everything | Full access for development and support |
+| Contractor *(future)* | Contracted districts | View and respond to assigned work orders |
+| Public *(future)* | None | Anonymous request submission only |
+
+---
+
+## Project docs
+
+- [`ROADMAP.md`](./ROADMAP.md) — where this is headed and why
+- [`SPRINT_BACKLOG.md`](./SPRINT_BACKLOG.md) — what's being worked on next
+
+---
+
+## Owner
+
+**John McEwen** — GIS Manager, Duplantis Design Group
