@@ -114,7 +114,8 @@ export function RequestDetailPanel({ request, onClose }: Props) {
         </header>
 
         {/* ===== Body ===== */}
-        <div
+
+<div
           style={{
             flex: '1 1 auto',
             overflowY: 'auto',
@@ -122,9 +123,78 @@ export function RequestDetailPanel({ request, onClose }: Props) {
             color: colors.darkestGray,
           }}
         >
-          <p style={{ color: colors.darkGray, fontStyle: 'italic' }}>
-            Panel content coming soon — read-only field display in the next step.
-          </p>
+          <Section title="Triage">
+            <Field label="Title" value={request.requestTitle} />
+            <Field label="Category" value={request.requestCategory} />
+            <Field label="Subcategory" value={request.requestSubcategory} />
+            <Field label="Urgency" value={request.urgency} />
+            <Field label="Priority Score" value={request.priorityScore} />
+            <Field label="Due Date" value={formatDate(request.dueDate)} />
+            <Field label="Triaged Date" value={formatDate(request.triagedDate)} />
+            <Field label="Description" value={request.requestDescription} wide />
+            <Field label="Public Notes" value={request.publicNotes} wide />
+            <Field label="Internal Notes" value={request.internalNotes} wide />
+          </Section>
+
+          <Section title="Location">
+            <Field label="District" value={request.district} />
+            <Field label="Parish" value={request.parish} />
+            <Field label="Municipality" value={request.municipality} />
+            <Field label="Route Name" value={request.routeName} />
+            <Field label="Route ID" value={request.routeId} />
+            <Field label="Milepost" value={request.milepost} />
+            <Field label="Original Lat" value={request.originalLatitude} />
+            <Field label="Original Lon" value={request.originalLongitude} />
+            <Field label="Corrected Lat" value={request.correctedLatitude} />
+            <Field label="Corrected Lon" value={request.correctedLongitude} />
+            <Field label="Location Corrected" value={request.locationCorrected} />
+            <Field label="Location Description" value={request.locationDescription} wide />
+          </Section>
+
+          <Section title="Requestor">
+            <Field label="Name" value={request.requestorName} />
+            <Field label="Organization" value={request.requestorOrganization} />
+            <Field label="Email" value={request.requestorEmail} />
+            <Field label="Phone" value={request.requestorPhone} />
+            <Field label="Intake Type" value={request.intakeType} />
+            <Field label="Source" value={request.source} />
+          </Section>
+
+          <Section title="Assignment">
+            <Field label="Assignment Status" value={request.assignmentStatus} />
+            <Field label="Work Order ID" value={request.assignedWorkOrderId} />
+            <Field label="Assigned To" value={request.assignedToName} />
+            <Field label="Assigned Team" value={request.assignedTeam} />
+            <Field label="Assigned Email" value={request.assignedToEmail} />
+            <Field label="Requires Design" value={request.requiresDesign} />
+            <Field label="Design Status" value={request.designStatus} />
+            <Field label="Maintenance Initiative" value={request.maintenanceInitiativeId} />
+            <Field label="Capital Project" value={request.capitalProjectId} />
+            <Field label="Assignment Notes" value={request.assignmentNotes} wide />
+          </Section>
+
+          <Section title="Status & Lifecycle">
+            <Field label="Status" value={request.status} />
+            <Field label="Submitted" value={formatDate(request.submittedDate)} />
+            <Field label="Assigned" value={formatDate(request.assignedDate)} />
+            <Field label="Canceled" value={formatDate(request.canceledDate)} />
+            <Field label="Closed" value={formatDate(request.closedDate)} />
+            <Field label="Cancellation Reason" value={request.cancellationReason} wide />
+            <Field label="Closed Reason" value={request.closedReason} wide />
+          </Section>
+
+          <Section title="System" defaultOpen={false}>
+            <Field label="OBJECTID" value={request.objectId} />
+            <Field label="GlobalID" value={request.globalId} />
+            <Field label="Request ID" value={request.requestId} />
+            <Field label="Created By" value={request.createdUser} />
+            <Field label="Created Date" value={formatDate(request.createdDate)} />
+            <Field label="Last Edited By" value={request.lastEditedUser} />
+            <Field label="Last Edited Date" value={formatDate(request.lastEditedDate)} />
+            <Field label="Deleted" value={request.deleted} />
+            <Field label="Deleted Date" value={formatDate(request.deletedDate)} />
+            <Field label="Deleted By" value={request.deletedBy} />
+          </Section>
         </div>
 
         {/* ===== Footer (placeholder for action buttons) ===== */}
@@ -173,4 +243,91 @@ export function RequestDetailPanel({ request, onClose }: Props) {
       />
     </>
   )
+// ============================================================
+// Helpers
+// ============================================================
+
+function formatDate(epochMs: number | null): string | null {
+  if (!epochMs) return null
+  try {
+    return new Date(epochMs).toLocaleString()
+  } catch {
+    return null
+  }
+}
+
+type SectionProps = {
+  title: string
+  defaultOpen?: boolean
+  children: React.ReactNode
+}
+
+function Section({ title, defaultOpen = true, children }: SectionProps) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <section
+      style={{
+        marginBottom: '1rem',
+        border: `1px solid ${colors.lightGray}`,
+        borderRadius: 6,
+        background: colors.white,
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          width: '100%',
+          textAlign: 'left',
+          background: colors.lightestGray,
+          color: colors.darkestGray,
+          border: 'none',
+          padding: '0.5rem 0.75rem',
+          fontWeight: 700,
+          cursor: 'pointer',
+          borderRadius: '6px 6px 0 0',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
+        <span>{title}</span>
+        <span style={{ color: colors.darkGray, fontWeight: 400 }}>{open ? '▾' : '▸'}</span>
+      </button>
+      {open && (
+        <div
+          style={{
+            padding: '0.5rem 0.75rem',
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '0.4rem 1rem',
+            fontSize: '0.9em',
+          }}
+        >
+          {children}
+        </div>
+      )}
+    </section>
+  )
+}
+
+type FieldProps = {
+  label: string
+  value: string | number | null | undefined
+  wide?: boolean
+}
+
+function Field({ label, value, wide }: FieldProps) {
+  const display = value === null || value === undefined || value === '' ? '—' : String(value)
+  return (
+    <div style={{ gridColumn: wide ? '1 / -1' : 'auto' }}>
+      <div style={{ color: colors.darkGray, fontSize: '0.75em', textTransform: 'uppercase' }}>
+        {label}
+      </div>
+      <div style={{ color: colors.darkestGray, wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
+        {display}
+      </div>
+    </div>
+  )
+}
 }

@@ -305,7 +305,7 @@ return (
               </button>
               {' · '}{req.urgency ?? '—'}
               {' · '}{req.status ?? '—'}
-              {' · '}{req.title ?? 'Untitled'}
+              {' · '}{req.requestTitle ?? 'Untitled'}
             </li>
           ))}
         </ul>
