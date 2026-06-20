@@ -59,7 +59,7 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [modalMode, setModalMode] = useState<'standalone' | 'from-selection' | null>(null)
-
+ 
   // ---- Data loading ----
 
 async function loadAll() {
