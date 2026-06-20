@@ -18,7 +18,7 @@ export const styles = {
     fontFamily: 'sans-serif',
     background: colors.lightestGray,
     color: colors.darkestGray,
-    minHeight: '250vh',
+    minHeight: '100vh',
     lineHeight: '3rem'
   } as const,
 
@@ -46,11 +46,37 @@ export const styles = {
   } as const,
 
   h1: {
-  margin: 0,
-  color: colors.darkestGray,
-  textAlign: 'center'
-  , lineHeight: '3rem'
-} as const,
+    margin: 0,
+    color: colors.darkestGray,
+    textAlign: 'center',
+    lineHeight: '1.5rem',
+    fontSize: '1.25rem',
+  } as const,
+
+  pageHeader: {
+    position: 'sticky',
+    top: 0,
+    zIndex: 100,
+    background: colors.white,
+    borderBottom: `1px solid ${colors.lightGray}`,
+    padding: '0.5rem 1rem',
+    marginBottom: '1rem',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '1rem',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
+  } as const,
+
+  logo: {
+    height: 40,
+    width: 'auto',
+    flex: '0 0 auto',
+  } as const,
+
+  pageTitleWrap: {
+    flex: 1,
+    textAlign: 'center' as const,
+  } as const,
 
   primaryButton: {
     background: colors.blue,
@@ -60,6 +86,18 @@ export const styles = {
     padding: '0.4rem 0.9rem',
     cursor: 'pointer',
     fontWeight: 600,
+  } as const,
+    
+  linkButton: {
+    background: 'transparent',
+    border: 'none',
+    padding: 0,
+    margin: 0,
+    color: colors.blue,
+    fontWeight: 700,
+    cursor: 'pointer',
+    textDecoration: 'underline',
+    font: 'inherit',
   } as const,
 
   secondaryButton: {
@@ -112,4 +150,14 @@ export const styles = {
     marginTop: '0.5rem',
     fontSize: '0.9em',
   },
+  
+  appFooter: {
+    marginTop: '3rem',
+    padding: '1rem',
+    borderTop: `1px solid ${colors.lightGray}`,
+    textAlign: 'center' as const,
+    color: colors.blue,
+    fontSize: '0.85em',
+    fontStyle: 'italic',
+  } as const,
 }
