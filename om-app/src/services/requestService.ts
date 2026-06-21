@@ -470,9 +470,8 @@ if (!workOrderGlobalId) {
     throw new Error('Request update failed')
   }
 
-// 3. Business rule: if the work order was still a Draft, the act of assigning
-  //    a request to it means work is starting to take shape — promote it to Open.
-  //    (Future: this should be enforced by a SQL trigger; for now, do it client-side.)
+// ---- Business rule: promote a Draft WO to Open on first request assignment.
+  //      Future: enforce this server-side via a SQL trigger and remove this block.
   if (workOrderStatus === 'Draft') {
     const woUpdate = [
       {
@@ -494,12 +493,10 @@ if (!workOrderGlobalId) {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: woEditParams.toString(),
     })
-
     const woUpdateData = await woUpdateResponse.json()
 
     if (woUpdateData.error) {
-      // Don't fail the whole assignment over this — log and continue.
-      // The request is already assigned; the user can manually flip status if needed.
+      // Don't fail the assignment over the auto-promote — log and continue.
       console.warn('Failed to auto-promote WO from Draft to Open:', woUpdateData.error)
     } else if (!woUpdateData.updateResults?.[0]?.success) {
       console.warn('WO auto-promote returned non-success:', woUpdateData)
@@ -507,11 +504,67 @@ if (!workOrderGlobalId) {
   }
 
   return updateData
+
 }
 
 export async function unassignRequest(requestObjectId: number) {
   const token = await getArcGISTokenForUrl(REQUEST_LAYER_URL)
 
+  // ---- 1. Look up the request so we know which WO it's attached to ----
+  const reqLookupParams = new URLSearchParams({
+    where: `OBJECTID = ${requestObjectId}`,
+    outFields: 'OBJECTID,assigned_work_order_globalid',
+    returnGeometry: 'false',
+    f: 'json',
+    token,
+  })
+  const reqLookupResponse = await fetch(
+    `${REQUEST_LAYER_URL}/query?${reqLookupParams.toString()}`,
+  )
+  const reqLookupData = await reqLookupResponse.json()
+  if (reqLookupData.error) {
+    console.error('Request lookup error during unassign:', reqLookupData.error)
+    throw new Error(reqLookupData.error.message ?? 'Failed to look up request')
+  }
+  const reqAttrs = reqLookupData.features?.[0]?.attributes ?? {}
+  const woGuidRaw: string | null = reqAttrs.assigned_work_order_globalid ?? null
+  const woGuid = woGuidRaw ? woGuidRaw.replace(/[{}]/g, '').toUpperCase() : null
+
+  // ---- 2. If attached to a WO, look up its current status ----
+  // We need this both for the lock-on-Closed/Canceled check AND for the
+  // revert-to-Draft rule once we know whether this was the last request.
+  let workOrderObjectId: number | null = null
+  let workOrderStatus: string | null = null
+
+  if (woGuid) {
+    const woLookupParams = new URLSearchParams({
+      // SDE stores braced GUIDs for GlobalID fields, so match the wrapped form.
+      where: `GlobalID = '{${woGuid}}'`,
+      outFields: 'OBJECTID,work_order_status',
+      returnGeometry: 'false',
+      f: 'json',
+      token,
+    })
+    const woLookupResponse = await fetch(
+      `${WORK_ORDER_LAYER_URL}/query?${woLookupParams.toString()}`,
+    )
+    const woLookupData = await woLookupResponse.json()
+    if (!woLookupData.error) {
+      const woAttrs = woLookupData.features?.[0]?.attributes ?? {}
+      workOrderObjectId = woAttrs.OBJECTID ?? null
+      workOrderStatus = woAttrs.work_order_status ?? null
+    }
+  }
+
+  // ---- 3. BLOCK: can't remove requests from a Closed/Canceled WO ----
+  if (workOrderStatus === 'Closed' || workOrderStatus === 'Canceled') {
+    throw new Error(
+      `Cannot unassign request — the work order is ${workOrderStatus}. ` +
+      `Closed and canceled work orders are locked.`
+    )
+  }
+
+  // ---- 4. Update the request: clear the WO link + revert assignment ----
   const updates = [
     {
       attributes: {
@@ -532,25 +585,66 @@ export async function unassignRequest(requestObjectId: number) {
 
   const updateResponse = await fetch(`${REQUEST_LAYER_URL}/applyEdits`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: editParams.toString(),
   })
-
   const updateData = await updateResponse.json()
-
   if (updateData.error) {
     console.error('ArcGIS request unassign error:', updateData.error)
     throw new Error(updateData.error.message ?? 'Failed to unassign request')
   }
-
   const updateResult = updateData.updateResults?.[0]
-
   if (!updateResult?.success) {
     console.error('ArcGIS request unassign result:', updateData)
     throw new Error('Request unassign failed')
   }
+
+  // ---- 5. Business rule (conservative): if that was the LAST request on the WO
+  //         AND the WO is still in Open, revert it to Draft. We do NOT revert
+  //         past-Open statuses (Assigned/Scheduled/In Progress/On Hold) because
+  //         those reflect work-in-progress, not request-attached state.
+  if (workOrderObjectId !== null && workOrderStatus === 'Open' && woGuid) {
+    const remainingParams = new URLSearchParams({
+      where:
+        `assigned_work_order_globalid = '{${woGuid}}' ` +
+        `AND (deleted IS NULL OR deleted = 'No')`,
+      returnCountOnly: 'true',
+      f: 'json',
+      token,
+    })
+    const remainingResponse = await fetch(
+      `${REQUEST_LAYER_URL}/query?${remainingParams.toString()}`,
+    )
+    const remainingData = await remainingResponse.json()
+
+    if (!remainingData.error && remainingData.count === 0) {
+      const woUpdate = [
+        {
+          attributes: {
+            OBJECTID: workOrderObjectId,
+            work_order_status: 'Draft',
+          },
+        },
+      ]
+      const woEditParams = new URLSearchParams({
+        f: 'json',
+        token,
+        updates: JSON.stringify(woUpdate),
+      })
+      const woUpdateResponse = await fetch(`${WORK_ORDER_LAYER_URL}/applyEdits`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: woEditParams.toString(),
+      })
+      const woUpdateData = await woUpdateResponse.json()
+      if (woUpdateData.error) {
+        console.warn('Failed to revert WO Open→Draft after last unassign:', woUpdateData.error)
+      } else if (!woUpdateData.updateResults?.[0]?.success) {
+        console.warn('WO revert returned non-success:', woUpdateData)
+      }
+    }
+  }
+
   return updateData
 }
 /**
