@@ -16,6 +16,7 @@
 - [x] Refresh requests / work orders buttons
 - [x] Apply OM brand color palette
 - [x] Database: `om_request_notes` + `om_work_order_notes` SDE tables w/ relationship classes
+- [x] Client-side enforcement: Draft → Open on first assignment, Open → Draft on last unassign, lock-on-Closed/Canceled
 
 ---
 
@@ -114,6 +115,11 @@
   - [ ] WO submitted → contractor email
   - [ ] Aging request → internal alert
   - [ ] Inspection failed → reassignment alert
+- [ ] SQL trigger: enforce request ↔ WO lifecycle rules server-side
+  - Assign request → if WO is Draft, promote to Open
+  - Unassign last request → if WO is Open, revert to Draft
+  - Block any request → WO assignment change when WO is Closed/Canceled
+  - Once live, remove client-side enforcement in `requestService.ts`
 
 ## 🎯 Epic 12: Admin / Roles / Handoff
 > Role model:

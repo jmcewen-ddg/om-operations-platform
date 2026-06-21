@@ -8,6 +8,10 @@ const CLOSED_REQUEST_STATUSES = ['Closed', 'Canceled']
 const isRequestModifiable = (req: OmRequest) =>
   !CLOSED_REQUEST_STATUSES.includes(req.status ?? '')
 
+const LOCKED_WO_STATUSES = ['Closed', 'Canceled']
+const isWorkOrderLocked = (wo: OmWorkOrder) =>
+  LOCKED_WO_STATUSES.includes(wo.workOrderStatus ?? '')
+
 type Props = {
   workOrder: OmWorkOrder
   assignedRequests: OmRequest[]
@@ -17,6 +21,7 @@ type Props = {
   onUnassignRequest: (requestObjectId: number) => void
   onDeleteWorkOrder: (workOrder: OmWorkOrder) => Promise<void>
   onOpenWorkOrder: (wo: OmWorkOrder) => void
+  onOpenRequest: (request: OmRequest) => void
 }
 
 export function WorkOrderWithRequests({
@@ -28,6 +33,7 @@ export function WorkOrderWithRequests({
   onUnassignRequest,
   onDeleteWorkOrder,
   onOpenWorkOrder,
+  onOpenRequest,
 }: Props) {
   // ---- Local UI state for the delete confirmation ----
   const [isConfirmOpen, setIsConfirmOpen] = useState(false)
@@ -116,38 +122,54 @@ export function WorkOrderWithRequests({
           </div>
         ) : (
           <ul style={{ listStyle: 'none', padding: 0, margin: '0.35rem 0 0' }}>
-            {assignedRequests.map((req) => {
-              const modifiable = isRequestModifiable(req)
-              return (
-                <li
-                  key={req.objectId}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    padding: '0.25rem 0.5rem',
-                    fontSize: '0.9em',
-                    color: colors.darkestGray,
-                    borderBottom: `1px solid ${colors.lightestGray}`,
-                  }}
-                >
-                  <span style={{ flex: 1 }}>
-                    <strong>{req.requestId}</strong>
-                    {' · '}{req.urgency ?? '—'}
-                    {' · '}{req.status ?? '—'}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={!modifiable}
-                    title={modifiable ? 'Unassign this request' : 'Closed/canceled requests cannot be unassigned'}
-                    onClick={() => onUnassignRequest(req.objectId)}
-                    style={modifiable ? unassignButton : unassignButtonDisabled}
-                  >
-                    Unassign
-                  </button>
-                </li>
-              )
-            })}
+{assignedRequests.map((req) => {
+  const requestModifiable = isRequestModifiable(req)
+  const woLocked = isWorkOrderLocked(workOrder)
+  const canUnassign = requestModifiable && !woLocked
+  return (
+    <li
+      key={req.objectId}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '0.25rem 0.5rem',
+        fontSize: '0.9em',
+        color: colors.darkestGray,
+        borderBottom: `1px solid ${colors.lightestGray}`,
+      }}
+    >
+      <span style={{ flex: 1 }}>
+        <button
+          type="button"
+          onClick={() => onOpenRequest(req)}
+          style={styles.linkButton}
+          title="Open request detail panel"
+        >
+          {req.requestId ?? '(no ID)'}
+        </button>
+        {' · '}{req.urgency ?? '—'}
+        {' · '}{req.status ?? '—'}
+        {' · '}{req.requestTitle ?? 'Untitled'}
+      </span>
+      <button
+        type="button"
+        disabled={!canUnassign}
+        title={
+          woLocked
+            ? `This work order is ${workOrder.workOrderStatus} — unassign is locked.`
+            : !requestModifiable
+            ? 'Closed/canceled requests cannot be unassigned'
+            : 'Unassign this request'
+        }
+        onClick={() => onUnassignRequest(req.objectId)}
+        style={canUnassign ? unassignButton : unassignButtonDisabled}
+      >
+        Unassign
+      </button>
+    </li>
+  )
+})}
           </ul>
         )}
       </div>
