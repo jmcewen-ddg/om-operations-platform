@@ -1,4 +1,3 @@
-
 import { getArcGISTokenForUrl } from './arcgisAuth'
 
 // ============================================================
@@ -10,7 +9,10 @@ export type CodedValue = {
   name: string
 }
 
-export type DomainMap = Record<string, CodedValue[]>
+export type DomainMap = {
+  [domainName: string]: { code: string; name: string }[]
+}
+
 
 // ============================================================
 // Service URLs to scan for domains

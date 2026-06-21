@@ -2,6 +2,13 @@ import { useEffect, useState } from 'react'
 import type { OmRequest } from '../services/requestService'
 import { colors } from '../theme'
 import { ConfirmModal } from './ConfirmModal'
+import { loadDomains, type DomainMap } from '../services/domainService'
+import {
+  getCategoryOptions,
+  getSubcategoryOptions,
+  buildRequestTitle,
+} from '../utils/requestCategoryHelpers'
+
 
 type Props = {
   request: OmRequest | null      // null = panel closed; a request = panel open with that data
@@ -12,8 +19,23 @@ export function RequestDetailPanel({ request, onClose }: Props) {
   // ---- Local state ----
   // hasUnsavedChanges will be flipped on by Edit mode in a later step.
   // For now it's always false, so close behavior is unguarded.
-  const [hasUnsavedChanges, _setHasUnsavedChanges] = useState(false)
+
   const [isDiscardConfirmOpen, setIsDiscardConfirmOpen] = useState(false)
+
+  // Edit mode + draft values for the cascading category/subcategory dropdowns.
+  // editCategory / editSubcategory hold the *code* (not the display name).
+  const [isEditing, setIsEditing] = useState(false)
+  const [domains, setDomains] = useState<DomainMap | null>(null)
+  const [editCategory, setEditCategory] = useState<string>('')
+  const [editSubcategory, setEditSubcategory] = useState<string>('')
+
+  // Dirty state is derived: any draft value differing from the loaded request
+  // counts as unsaved. Add more fields here as we make them editable.
+  const hasUnsavedChanges =
+    isEditing &&
+    (editCategory !== (request?.requestCategory ?? '') ||
+      editSubcategory !== (request?.requestSubcategory ?? ''))
+
 
   // ---- Close handling ----
   // Centralized so every "close" path (X button, Escape, backdrop click) flows
@@ -30,6 +52,29 @@ export function RequestDetailPanel({ request, onClose }: Props) {
     setIsDiscardConfirmOpen(false)
     onClose()
   }
+
+  // ---- Load coded-value domains once ----
+  // Cached inside domainService, so this is cheap on remount.
+  useEffect(() => {
+    let cancelled = false
+    loadDomains()
+      .then((d) => {
+        if (!cancelled) setDomains(d)
+      })
+      .catch((err) => console.error('Failed to load domains', err))
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // ---- Reset edit drafts whenever a different request is loaded ----
+  // Keyed on globalId so reopening the same request is a no-op,
+  // but switching to a different request clears stale drafts.
+  useEffect(() => {
+    setIsEditing(false)
+    setEditCategory(request?.requestCategory ?? '')
+    setEditSubcategory(request?.requestSubcategory ?? '')
+  }, [request?.globalId])
 
   // ---- Escape key closes the panel ----
   useEffect(() => {
@@ -123,10 +168,42 @@ export function RequestDetailPanel({ request, onClose }: Props) {
             color: colors.darkestGray,
           }}
         >
-          <Section title="Triage">
-            <Field label="Title" value={request.requestTitle} />
-            <Field label="Category" value={request.requestCategory} />
-            <Field label="Subcategory" value={request.requestSubcategory} />
+          <Section title="Triage" defaultOpen={false}>
+            
+{isEditing ? (
+              <>
+                <CategoryDropdown
+                  label="Category"
+                  value={editCategory}
+                  options={domains ? getCategoryOptions(domains) : []}
+                  onChange={(code) => {
+                    setEditCategory(code)
+                    // Clear subcategory when category changes — old sub may no longer be valid
+                    setEditSubcategory('')
+                  }}
+                />
+                <CategoryDropdown
+                  label="Subcategory"
+                  value={editSubcategory}
+                  options={domains ? getSubcategoryOptions(domains, editCategory) : []}
+                  disabled={!editCategory}
+                  onChange={(code) => setEditSubcategory(code)}
+                />
+                <Field
+                  label="Title (auto)"
+                  value={domains ? buildRequestTitle(domains, editSubcategory) : ''}
+                  wide
+                />
+              </>
+            ) : (
+              <>
+                <Field label="Title" value={request.requestTitle} />
+                <Field label="Category" value={request.requestCategory} />
+                <Field label="Subcategory" value={request.requestSubcategory} />
+              </>
+            )}
+            <Field label="Urgency" value={request.urgency} />
+
             <Field label="Urgency" value={request.urgency} />
             <Field label="Priority Score" value={request.priorityScore} />
             <Field label="Due Date" value={formatDate(request.dueDate)} />
@@ -136,7 +213,7 @@ export function RequestDetailPanel({ request, onClose }: Props) {
             <Field label="Internal Notes" value={request.internalNotes} wide />
           </Section>
 
-          <Section title="Location">
+          <Section title="Location" defaultOpen={false}>
             <Field label="District" value={request.district} />
             <Field label="Parish" value={request.parish} />
             <Field label="Municipality" value={request.municipality} />
@@ -151,7 +228,7 @@ export function RequestDetailPanel({ request, onClose }: Props) {
             <Field label="Location Description" value={request.locationDescription} wide />
           </Section>
 
-          <Section title="Requestor">
+          <Section title="Requestor" defaultOpen={false}>
             <Field label="Name" value={request.requestorName} />
             <Field label="Organization" value={request.requestorOrganization} />
             <Field label="Email" value={request.requestorEmail} />
@@ -160,7 +237,7 @@ export function RequestDetailPanel({ request, onClose }: Props) {
             <Field label="Source" value={request.source} />
           </Section>
 
-          <Section title="Assignment">
+          <Section title="Assignment" defaultOpen={false}>
             <Field label="Assignment Status" value={request.assignmentStatus} />
             <Field label="Work Order ID" value={request.assignedWorkOrderId} />
             <Field label="Assigned To" value={request.assignedToName} />
@@ -173,7 +250,7 @@ export function RequestDetailPanel({ request, onClose }: Props) {
             <Field label="Assignment Notes" value={request.assignmentNotes} wide />
           </Section>
 
-          <Section title="Status & Lifecycle">
+          <Section title="Status & Lifecycle" defaultOpen={false}>
             <Field label="Status" value={request.status} />
             <Field label="Submitted" value={formatDate(request.submittedDate)} />
             <Field label="Assigned" value={formatDate(request.assignedDate)} />
@@ -209,20 +286,76 @@ export function RequestDetailPanel({ request, onClose }: Props) {
             gap: 8,
           }}
         >
-          <button
-            type="button"
-            onClick={attemptClose}
-            style={{
-              background: colors.white,
-              color: colors.darkestGray,
-              border: `1px solid ${colors.gray}`,
-              borderRadius: 4,
-              padding: '0.4rem 0.9rem',
-              cursor: 'pointer',
-            }}
-          >
-            Close
-          </button>
+{!isEditing ? (
+            <>
+              <button
+                type="button"
+                onClick={attemptClose}
+                style={{
+                  background: colors.white,
+                  color: colors.darkestGray,
+                  border: `1px solid ${colors.gray}`,
+                  borderRadius: 4,
+                  padding: '0.4rem 0.9rem',
+                  cursor: 'pointer',
+                }}
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsEditing(true)}
+                style={{
+                  background: colors.blue,
+                  color: colors.white,
+                  border: 'none',
+                  borderRadius: 4,
+                  padding: '0.4rem 0.9rem',
+                  cursor: 'pointer',
+                }}
+              >
+                Edit
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  if (hasUnsavedChanges) {
+                    setIsDiscardConfirmOpen(true)
+                  } else {
+                    setIsEditing(false)
+                  }
+                }}
+                style={{
+                  background: colors.white,
+                  color: colors.darkestGray,
+                  border: `1px solid ${colors.gray}`,
+                  borderRadius: 4,
+                  padding: '0.4rem 0.9rem',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled
+                title="Save coming in next step"
+                style={{
+                  background: colors.gray,
+                  color: colors.white,
+                  border: 'none',
+                  borderRadius: 4,
+                  padding: '0.4rem 0.9rem',
+                  cursor: 'not-allowed',
+                }}
+              >
+                Save
+              </button>
+            </>
+          )}
         </footer>
       </aside>
 
@@ -327,6 +460,44 @@ function Field({ label, value, wide }: FieldProps) {
       <div style={{ color: colors.darkestGray, wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
         {display}
       </div>
+    </div>
+  )
+}
+type CategoryDropdownProps = {
+  label: string
+  value: string
+  options: { code: string; name: string }[]
+  onChange: (code: string) => void
+  disabled?: boolean
+}
+
+function CategoryDropdown({ label, value, options, onChange, disabled }: CategoryDropdownProps) {
+  return (
+    <div style={{ gridColumn: 'auto' }}>
+      <div style={{ color: colors.darkGray, fontSize: '0.75em', textTransform: 'uppercase' }}>
+        {label}
+      </div>
+      <select
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+        style={{
+          width: '100%',
+          padding: '0.3rem 0.4rem',
+          border: `1px solid ${colors.gray}`,
+          borderRadius: 4,
+          background: disabled ? colors.lightestGray : colors.white,
+          color: colors.darkestGray,
+          fontSize: '0.95em',
+        }}
+      >
+        <option value="">{disabled ? '— select category first —' : '— choose —'}</option>
+        {options.map((opt) => (
+          <option key={opt.code} value={opt.code}>
+            {opt.name}
+          </option>
+        ))}
+      </select>
     </div>
   )
 }
