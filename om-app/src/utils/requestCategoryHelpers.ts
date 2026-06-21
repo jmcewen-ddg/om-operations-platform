@@ -1,7 +1,7 @@
 import type { DomainMap } from '../services/domainService'
 
-const CATEGORY_DOMAIN = 'om_request_category'
-const SUBCATEGORY_DOMAIN = 'om_request_subcategory'
+const CATEGORY_DOMAIN = 'request_category'
+const SUBCATEGORY_DOMAIN = 'request_subcategory'
 
 export type DomainOption = { code: string; name: string }
 

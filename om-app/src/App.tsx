@@ -366,10 +366,24 @@ return (
   />
 )}
 
+
 <RequestDetailPanel
   request={detailRequest}
   onClose={() => setDetailRequest(null)}
+  onRequestUpdated={(updated) => {
+    // Update whichever list the row lives in. Since we're not editing
+    // request_assignment in this pass, rows don't move between lists.
+    setAssignedRequests((prev) =>
+      prev.map((r) => (r.objectId === updated.objectId ? updated : r)),
+    )
+    setUnassignedRequests((prev) =>
+      prev.map((r) => (r.objectId === updated.objectId ? updated : r)),
+    )
+    // Keep the panel open showing the fresh data
+    setDetailRequest(updated)
+  }}
 />
+
 
       <footer style={styles.appFooter}>
         Developed by DDG Geospatial Technology &amp; Information Services Team

@@ -1,4 +1,73 @@
 import { getArcGISTokenForUrl } from './arcgisAuth'
+import { applyEdits } from './arcgisRest'
+
+/**
+ * Maps TS OmRequest field names (camelCase) → REST field names (snake_case).
+ * Keep in sync with the OmRequest type and the feature service schema.
+ * Only fields that are EDITABLE should appear here. System fields
+ * (OBJECTID, GlobalID, created_*, last_edited_*) are intentionally excluded.
+ */
+const FIELD_MAP: Partial<Record<keyof OmRequest, string>> = {
+  // Triage
+  requestTitle: 'request_title',
+  requestCategory: 'request_category',
+  requestSubcategory: 'request_subcategory',
+  urgency: 'urgency',
+  priorityScore: 'priority_score',
+  dueDate: 'due_date',
+  triagedDate: 'triaged_date',
+  requestDescription: 'request_description',
+  publicNotes: 'public_notes',
+  internalNotes: 'internal_notes',
+
+  // Location
+  district: 'district',
+  parish: 'parish',
+  municipality: 'municipality',
+  routeName: 'route_name',
+  routeId: 'route_id',
+  milepost: 'milepost',
+  originalLatitude: 'original_latitude',
+  originalLongitude: 'original_longitude',
+  correctedLatitude: 'corrected_latitude',
+  correctedLongitude: 'corrected_longitude',
+  locationCorrected: 'location_corrected',
+  locationDescription: 'location_description',
+
+  // Requestor
+  requestorName: 'requestor_name',
+  requestorOrganization: 'requestor_organization',
+  requestorEmail: 'requestor_email',
+  requestorPhone: 'requestor_phone',
+  intakeType: 'intake_type',
+  source: 'source',
+
+  // Assignment
+  assignmentStatus: 'request_assignment',
+  assignedWorkOrderId: 'assigned_work_order_id',
+  assignedToName: 'assigned_to_name',
+  assignedTeam: 'assigned_team',
+  assignedToEmail: 'assigned_to_email',
+  requiresDesign: 'requires_design',
+  designStatus: 'design_status',
+  maintenanceInitiativeId: 'maintenance_initiative_id',
+  capitalProjectId: 'capital_project_id',
+  assignmentNotes: 'assignment_notes',
+
+  // Status & Lifecycle
+  status: 'request_status',
+  submittedDate: 'submitted_date',
+  assignedDate: 'assigned_date',
+  canceledDate: 'canceled_date',
+  closedDate: 'closed_date',
+  cancellationReason: 'cancellation_reason',
+  closedReason: 'closed_reason',
+
+  // Soft-delete (admin-only in UI, but mapping is here)
+  deleted: 'deleted',
+  deletedDate: 'deleted_date',
+  deletedBy: 'deleted_by',
+}
 
 function normalizeGuid(g: string | null | undefined): string | null {
   if (!g) return null
@@ -445,4 +514,45 @@ export async function unassignRequest(requestObjectId: number) {
     throw new Error('Request unassign failed')
   }
   return updateData
+}
+/**
+ * Update a single om_request row.
+ *
+ * @param objectId - OBJECTID of the row to update (REQUIRED — identifies the row)
+ * @param changes  - Partial OmRequest with only the fields you want to change.
+ *                   Unknown / unmapped keys are silently ignored.
+ *
+ * Throws if the REST call fails or applyEdits reports success=false.
+ * On success, returns nothing — caller should optimistically apply `changes`
+ * locally or re-fetch the row.
+ */
+export async function updateRequest(
+  objectId: number,
+  changes: Partial<OmRequest>,
+): Promise<void> {
+  if (!objectId) {
+    throw new Error('updateRequest: objectId is required')
+  }
+
+  // Build the REST attributes payload: OBJECTID + only the mapped/changed fields.
+  const restAttributes: Record<string, unknown> = { OBJECTID: objectId }
+
+  for (const [tsKey, restKey] of Object.entries(FIELD_MAP)) {
+    if (Object.prototype.hasOwnProperty.call(changes, tsKey)) {
+      const value = changes[tsKey as keyof OmRequest]
+      // Send empty strings as null — keeps clears working consistently.
+      restAttributes[restKey as string] = value === '' ? null : value
+    }
+  }
+
+  // Sanity check: if nothing besides OBJECTID is in the payload, no-op.
+  if (Object.keys(restAttributes).length === 1) {
+    console.warn('updateRequest called with no mapped changes — skipping')
+    return
+  }
+
+  await applyEdits({
+    layerUrl: REQUEST_LAYER_URL,
+    updates: [{ attributes: restAttributes }],
+  })
 }

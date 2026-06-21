@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { OmRequest } from '../services/requestService'
+import { updateRequest, type OmRequest } from '../services/requestService'
 import { colors } from '../theme'
 import { ConfirmModal } from './ConfirmModal'
 import { loadDomains, type DomainMap } from '../services/domainService'
@@ -10,12 +10,17 @@ import {
 } from '../utils/requestCategoryHelpers'
 
 
+
 type Props = {
   request: OmRequest | null      // null = panel closed; a request = panel open with that data
   onClose: () => void
+  /** Called with the updated request after a successful save.
+   *  Parent should use this to update its list state so the row reflects new values. */
+  onRequestUpdated?: (updated: OmRequest) => void
 }
 
-export function RequestDetailPanel({ request, onClose }: Props) {
+export function RequestDetailPanel({ request, onClose, onRequestUpdated }: Props) {
+
   // ---- Local state ----
   // hasUnsavedChanges will be flipped on by Edit mode in a later step.
   // For now it's always false, so close behavior is unguarded.
@@ -36,6 +41,46 @@ export function RequestDetailPanel({ request, onClose }: Props) {
     (editCategory !== (request?.requestCategory ?? '') ||
       editSubcategory !== (request?.requestSubcategory ?? ''))
 
+
+  // ---- Save state ----
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+
+  // ---- Save handler ----
+  async function handleSave() {
+    if (!request) return
+    if (!hasUnsavedChanges) {
+      setIsEditing(false)
+      return
+    }
+
+    setIsSaving(true)
+    setSaveError(null)
+
+    // Build the changes payload — only the fields we actually edited.
+    // Title is derived from subcategory, so we send all three together.
+    const newTitle = domains ? buildRequestTitle(domains, editSubcategory) : ''
+    const changes: Partial<OmRequest> = {
+      requestCategory: editCategory || null,
+      requestSubcategory: editSubcategory || null,
+      requestTitle: newTitle || null,
+    }
+
+    try {
+      await updateRequest(request.objectId, changes)
+
+      // Build the optimistically-updated request to hand back to the parent.
+      const updated: OmRequest = { ...request, ...changes }
+      onRequestUpdated?.(updated)
+
+      setIsEditing(false)
+    } catch (err) {
+      console.error('Failed to save request:', err)
+      setSaveError(err instanceof Error ? err.message : 'Save failed')
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   // ---- Close handling ----
   // Centralized so every "close" path (X button, Escape, backdrop click) flows
@@ -168,7 +213,7 @@ export function RequestDetailPanel({ request, onClose }: Props) {
             color: colors.darkestGray,
           }}
         >
-          <Section title="Triage" defaultOpen={false}>
+          <Section title="Triage" defaultOpen={true}>
             
 {isEditing ? (
               <>
@@ -319,8 +364,22 @@ export function RequestDetailPanel({ request, onClose }: Props) {
             </>
           ) : (
             <>
+              {saveError && (
+                <div
+                  style={{
+                    flex: '1 1 auto',
+                    color: '#9B1C1C',
+                    fontSize: '0.85em',
+                    alignSelf: 'center',
+                  }}
+                  role="alert"
+                >
+                  ⚠️ {saveError}
+                </div>
+              )}
               <button
                 type="button"
+                disabled={isSaving}
                 onClick={() => {
                   if (hasUnsavedChanges) {
                     setIsDiscardConfirmOpen(true)
@@ -334,25 +393,29 @@ export function RequestDetailPanel({ request, onClose }: Props) {
                   border: `1px solid ${colors.gray}`,
                   borderRadius: 4,
                   padding: '0.4rem 0.9rem',
-                  cursor: 'pointer',
+                  cursor: isSaving ? 'not-allowed' : 'pointer',
+                  opacity: isSaving ? 0.6 : 1,
                 }}
               >
                 Cancel
               </button>
               <button
                 type="button"
-                disabled
-                title="Save coming in next step"
+                disabled={isSaving || !hasUnsavedChanges}
+                onClick={handleSave}
                 style={{
-                  background: colors.gray,
-                  color: colors.white,
+                  background:
+                    isSaving || !hasUnsavedChanges ? colors.gray : colors.green,
+                  color: isSaving || !hasUnsavedChanges ? colors.white : colors.darkestGray,
                   border: 'none',
                   borderRadius: 4,
                   padding: '0.4rem 0.9rem',
-                  cursor: 'not-allowed',
+                  cursor:
+                    isSaving || !hasUnsavedChanges ? 'not-allowed' : 'pointer',
+                  fontWeight: 600,
                 }}
               >
-                Save
+                {isSaving ? 'Saving…' : 'Save'}
               </button>
             </>
           )}
