@@ -1,5 +1,6 @@
 import { getArcGISTokenForUrl } from './arcgisAuth'
 import { applyEdits } from './arcgisRest'
+import { arcgisConfig } from '../config/arcgis'
 
 /**
  * Maps TS OmRequest field names (camelCase) → REST field names (snake_case).
@@ -152,16 +153,8 @@ export type OmRequest = {
   lastEditedDate: number | null
 }
 
-const REQUEST_LAYER_URL = 'https://gis.ddgpc.com/arcgis/rest/services/25-1755_OLHC/OM_Request/FeatureServer/0'
-//const REQUEST_NOTE_URL = 'https://gis.ddgpc.com/arcgis/rest/services/25-1755_OLHC/OM_Request/FeatureServer/2'
-//const REQUEST_STATUS_HISTORY_URL = 'https://gis.ddgpc.com/arcgis/rest/services/25-1755_OLHC/OM_Request/FeatureServer/3'
-//const RELATED_DOCUMENT_URL = 'https://gis.ddgpc.com/arcgis/rest/services/25-1755_OLHC/OM_Request/FeatureServer/4'
-const WORK_ORDER_LAYER_URL = 'https://gis.ddgpc.com/arcgis/rest/services/25-1755_OLHC/OM_Work_Order/FeatureServer/0'
-//const WORK_ORDER_ASSIGNMENT_URL = 'https://gis.ddgpc.com/arcgis/rest/services/25-1755_OLHC/OM_Work_Order/FeatureServer/1'
-//const WORK_ORDER_LABOR_URL = 'https://gis.ddgpc.com/arcgis/rest/services/25-1755_OLHC/OM_Work_Order/FeatureServer/2'
-//const WORK_ORDER_MATERIAL_URL = 'https://gis.ddgpc.com/arcgis/rest/services/25-1755_OLHC/OM_Work_Order/FeatureServer/3'
-//const WORK_ORDER_NOTE_URL = 'https://gis.ddgpc.com/arcgis/rest/services/25-1755_OLHC/OM_Work_Order/FeatureServer/4'
-//const WORK_ORDER_STATUS_HISTORY_URL = 'https://gis.ddgpc.com/arcgis/rest/services/25-1755_OLHC/OM_Work_Order/FeatureServer/5'
+const REQUEST_LAYER_URL = arcgisConfig.services.requests
+const WORK_ORDER_LAYER_URL = arcgisConfig.services.workOrders
 
 export async function getAssignedRequests(): Promise<OmRequest[]> {
   const token = await getArcGISTokenForUrl(REQUEST_LAYER_URL)

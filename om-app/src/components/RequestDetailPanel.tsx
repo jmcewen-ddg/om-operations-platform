@@ -3,6 +3,7 @@ import { updateRequest, type OmRequest } from '../services/requestService'
 import { colors } from '../theme'
 import { ConfirmModal } from './ConfirmModal'
 import { loadDomains, type DomainMap } from '../services/domainService'
+import { RequestNotesSection } from './RequestNotesSection'
 import {
   getCategoryOptions,
   getSubcategoryOptions,
@@ -304,6 +305,9 @@ export function RequestDetailPanel({ request, onClose, onRequestUpdated }: Props
             <Field label="Cancellation Reason" value={request.cancellationReason} wide />
             <Field label="Closed Reason" value={request.closedReason} wide />
           </Section>
+
+          {/* --------- Notes --------- */}
+<RequestNotesSection requestGlobalId={request.globalId} defaultOpen={false} />
 
           <Section title="System" defaultOpen={false}>
             <Field label="OBJECTID" value={request.objectId} />
