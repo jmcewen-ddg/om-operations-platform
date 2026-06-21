@@ -3,6 +3,7 @@ import { updateWorkOrder, type OmWorkOrder } from '../services/workOrderService'
 import { colors } from '../theme'
 import { ConfirmModal } from './ConfirmModal'
 import { loadDomains, type DomainMap } from '../services/domainService'
+import { WorkOrderNotesSection } from './WorkOrderNotesSection'
 import {
   getAllowedWorkOrderTransitions,
   canEditWorkOrderStatus,
@@ -403,6 +404,9 @@ export function WorkOrderDetailPanel({
               </>
             )}
           </Section>
+
+          {/* --------- Notes --------- */}
+          <WorkOrderNotesSection workOrderGlobalId={workOrder.globalId} defaultOpen={false} />
 
           {/* --------- System (read-only) --------- */}
           <Section title="System" defaultOpen={false}>
