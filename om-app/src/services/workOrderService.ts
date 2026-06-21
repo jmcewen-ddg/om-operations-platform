@@ -93,13 +93,6 @@ const FIELD_MAP: Partial<Record<keyof OmWorkOrder, string>> = {
   cancellationReason: 'cancellation_reason',
 }
 
-// const WORK_ORDER_LAYER_URL = 'https://gis.ddgpc.com/arcgis/rest/services/25-1755_OLHC/OM_Work_Order/FeatureServer/0'
-//const WORK_ORDER_ASSIGNMENT_URL = 'https://gis.ddgpc.com/arcgis/rest/services/25-1755_OLHC/OM_Work_Order/FeatureServer/1'
-//const WORK_ORDER_LABOR_URL = 'https://gis.ddgpc.com/arcgis/rest/services/25-1755_OLHC/OM_Work_Order/FeatureServer/2'
-//const WORK_ORDER_MATERIAL_URL = 'https://gis.ddgpc.com/arcgis/rest/services/25-1755_OLHC/OM_Work_Order/FeatureServer/3'
-//const WORK_ORDER_NOTE_URL = 'https://gis.ddgpc.com/arcgis/rest/services/25-1755_OLHC/OM_Work_Order/FeatureServer/4'
-//const WORK_ORDER_STATUS_HISTORY_URL = 'https://gis.ddgpc.com/arcgis/rest/services/25-1755_OLHC/OM_Work_Order/FeatureServer/5'
-
 const workOrderLayer = new FeatureLayer({
   url: arcgisConfig.services.workOrders,
 })
