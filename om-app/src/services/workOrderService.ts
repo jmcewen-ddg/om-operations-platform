@@ -3,14 +3,94 @@ import { arcgisConfig } from '../config/arcgis'
 import Graphic from '@arcgis/core/Graphic'
 
 export type OmWorkOrder = {
+  // Identity
   objectId: number
-  globalId: string | null    // ← was string | undefined
+  globalId: string | null
   workOrderId: string | null
+
+  // Classification
   district: string | null
-  workOrderStatus: string | null
-  priority: string | null
+  workOrderType: string | null
   workOrderTitle: string | null
-  workOrderDescription: string | null
+  scopeOfWork: string | null
+  urgency: string | null            // ← read-only in UI; derived in SQL
+  workOrderStatus: string | null
+
+  // Assignment
+  assignedToName: string | null
+  assignedToEmail: string | null
+  assignedTeam: string | null
+
+  // Schedule
+  scheduledStartDate: number | null
+  scheduledEndDate: number | null
+  actualStartDate: number | null
+  actualEndDate: number | null
+  completedDate: number | null
+  closedDate: number | null
+
+  // Effort / cost
+  estimatedHours: number | null
+  actualHours: number | null
+  estimatedCost: number | null
+  actualCost: number | null
+
+  // Close-out
+  completionNotes: string | null
+  cancellationReason: string | null
+
+  // Soft delete
+  deleted: string | null
+  deletedDate: number | null
+  deletedBy: string | null
+
+  // Audit (read-only — set by Esri editor tracking)
+  createdUser: string | null
+  createdDate: number | null
+  lastEditedUser: string | null
+  lastEditedDate: number | null
+}
+
+/**
+ * Maps TS OmWorkOrder field names (camelCase) → REST field names (snake_case).
+ * Only EDITABLE fields appear here. System fields (OBJECTID, GlobalID,
+ * work_order_id, audit fields, urgency, etc.) are intentionally excluded.
+ *
+ * Notes on what's NOT here:
+ *  - urgency           — derived in SQL from attached requests
+ *  - district          — set at create time, shouldn't be editable
+ *  - work_order_id     — set by SQL trigger from sequence
+ *  - deleted/audit     — system-managed
+ */
+const FIELD_MAP: Partial<Record<keyof OmWorkOrder, string>> = {
+  // Classification
+  workOrderTitle:  'work_order_title',
+  workOrderType:   'work_order_type',
+  scopeOfWork:     'scope_of_work',
+  workOrderStatus: 'work_order_status',
+
+  // Assignment
+  assignedToName:  'assigned_to_name',
+  assignedToEmail: 'assigned_to_email',
+  assignedTeam:    'assigned_team',
+
+  // Schedule
+  scheduledStartDate: 'scheduled_start_date',
+  scheduledEndDate:   'scheduled_end_date',
+  actualStartDate:    'actual_start_date',
+  actualEndDate:      'actual_end_date',
+  completedDate:      'completed_date',
+  closedDate:         'closed_date',
+
+  // Effort / cost
+  estimatedHours: 'estimated_hours',
+  actualHours:    'actual_hours',
+  estimatedCost:  'estimated_cost',
+  actualCost:     'actual_cost',
+
+  // Close-out
+  completionNotes:    'completion_notes',
+  cancellationReason: 'cancellation_reason',
 }
 
 // const WORK_ORDER_LAYER_URL = 'https://gis.ddgpc.com/arcgis/rest/services/25-1755_OLHC/OM_Work_Order/FeatureServer/0'
@@ -35,24 +115,60 @@ export async function getWorkOrders(): Promise<OmWorkOrder[]> {
   query.where = "deleted IS NULL OR deleted = 'No'"
   query.outFields = ['*']
   query.returnGeometry = false
-  query.num = 10
+  //query.num = 1000
 
   const result = await workOrderLayer.queryFeatures(query)
 
-  return result.features.map((feature) => {
-    const attributes = feature.attributes
-
-    console.log('Work order attributes:', attributes)
+return result.features.map((feature) => {
+    const a = feature.attributes
 
     return {
-      objectId: attributes.OBJECTID,
-      globalId: normalizeGuid(attributes.GlobalID ?? attributes.globalid ?? attributes.GLOBALID),
-      workOrderId: attributes.work_order_id,
-      district: attributes.district,
-      workOrderStatus: attributes.work_order_status,
-      priority: attributes.priority,
-      workOrderTitle: attributes.work_order_title,
-      workOrderDescription: attributes.work_order_description,
+      // Identity
+      objectId:    a.OBJECTID,
+      globalId:    normalizeGuid(a.GlobalID ?? a.globalid ?? a.GLOBALID),
+      workOrderId: a.work_order_id ?? null,
+
+      // Classification
+      district:        a.district ?? null,
+      workOrderType:   a.work_order_type ?? null,
+      workOrderTitle:  a.work_order_title ?? null,
+      scopeOfWork:     a.scope_of_work ?? null,
+      urgency:         a.urgency ?? null,
+      workOrderStatus: a.work_order_status ?? null,
+
+      // Assignment
+      assignedToName:  a.assigned_to_name ?? null,
+      assignedToEmail: a.assigned_to_email ?? null,
+      assignedTeam:    a.assigned_team ?? null,
+
+      // Schedule
+      scheduledStartDate: a.scheduled_start_date ?? null,
+      scheduledEndDate:   a.scheduled_end_date ?? null,
+      actualStartDate:    a.actual_start_date ?? null,
+      actualEndDate:      a.actual_end_date ?? null,
+      completedDate:      a.completed_date ?? null,
+      closedDate:         a.closed_date ?? null,
+
+      // Effort / cost
+      estimatedHours: a.estimated_hours ?? null,
+      actualHours:    a.actual_hours ?? null,
+      estimatedCost:  a.estimated_cost ?? null,
+      actualCost:     a.actual_cost ?? null,
+
+      // Close-out
+      completionNotes:    a.completion_notes ?? null,
+      cancellationReason: a.cancellation_reason ?? null,
+
+      // Soft delete
+      deleted:     a.deleted ?? null,
+      deletedDate: a.deleted_date ?? null,
+      deletedBy:   a.deleted_by ?? null,
+
+      // Audit
+      createdUser:    a.created_user ?? null,
+      createdDate:    a.created_date ?? null,
+      lastEditedUser: a.last_edited_user ?? null,
+      lastEditedDate: a.last_edited_date ?? null,
     }
   })
 }
@@ -60,13 +176,13 @@ export async function getWorkOrders(): Promise<OmWorkOrder[]> {
 export async function createWorkOrder(params: {
   work_order_id: string
   district: string
-  priority?: string
+  urgency?: string
 }): Promise<{ objectId: number; globalId: string }> {
   const attributes = {
     work_order_id: 'PENDING',
     district: params.district,
     work_order_status: 'Draft',
-    priority: params.priority ?? 'N/A',
+    urgency: params.urgency ?? 'N/A',
   }
 
   // applyEdits() handles auth via IdentityManager — no manual token plumbing
@@ -166,5 +282,62 @@ export async function softDeleteWorkOrder(objectId: number): Promise<void> {
       updateResult?.error?.message ??
       'Failed to delete work order.'
     )
+  }
+}
+/**
+ * Update a single om_work_order row.
+ *
+ * Mirror of updateRequest() in requestService.ts — same pattern: takes an
+ * OBJECTID + a partial OmWorkOrder, builds a REST attributes payload from
+ * FIELD_MAP, and calls applyEdits.
+ *
+ * @param objectId - OBJECTID of the row to update (REQUIRED)
+ * @param changes  - Partial OmWorkOrder with only the fields you want to change.
+ *                   Unknown / unmapped keys are silently ignored.
+ *
+ * Throws if applyEdits fails or reports success=false.
+ */
+export async function updateWorkOrder(
+  objectId: number,
+  changes: Partial<OmWorkOrder>,
+): Promise<void> {
+  if (!objectId) throw new Error('updateWorkOrder: objectId is required')
+
+  // Build the REST attributes payload: OBJECTID + only the mapped/changed fields.
+  const restAttributes: Record<string, unknown> = { OBJECTID: objectId }
+
+  for (const [tsKey, restKey] of Object.entries(FIELD_MAP)) {
+    if (Object.prototype.hasOwnProperty.call(changes, tsKey)) {
+      const value = changes[tsKey as keyof OmWorkOrder]
+      // Send empty strings as null — keeps "clear field" working consistently
+      restAttributes[restKey as string] = value === '' ? null : value
+    }
+  }
+
+  // Sanity check: if nothing besides OBJECTID is in the payload, no-op.
+  if (Object.keys(restAttributes).length === 1) {
+    console.warn('updateWorkOrder called with no mapped changes — skipping')
+    return
+  }
+
+  let result
+  try {
+    result = await workOrderLayer.applyEdits({
+      updateFeatures: [new Graphic({ attributes: restAttributes })],
+    })
+  } catch (err: any) {
+    console.error('updateWorkOrder applyEdits threw:', err)
+    throw new Error(
+      err?.details?.messages?.join('; ') ??
+      err?.details?.message ??
+      err?.message ??
+      'Failed to update work order.'
+    )
+  }
+
+  const updateResult = result.updateFeatureResults?.[0]
+  if (!updateResult || updateResult.error) {
+    console.error('updateWorkOrder failed. Full result:', result)
+    throw new Error(updateResult?.error?.message ?? 'Failed to update work order.')
   }
 }

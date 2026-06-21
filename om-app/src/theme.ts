@@ -67,6 +67,11 @@ export const styles = {
     boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
   } as const,
 
+  helperText: {
+    color: colors.darkGray,
+    fontSize: '0.85rem',
+  } as const,
+
   logo: {
     height: 40,
     width: 'auto',

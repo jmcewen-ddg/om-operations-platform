@@ -8,6 +8,7 @@ import {
 } from './services/requestService'
 import { WorkOrderWithRequests } from './components/WorkOrderWithRequests'
 import { CreateWorkOrderModal } from './components/CreateWorkOrderModal'
+import { WorkOrderDetailPanel } from './components/WorkOrderDetailPanel'
 import { RequestDetailPanel } from './components/RequestDetailPanel'
 import { loadDomains } from './services/domainService'
 import {
@@ -61,6 +62,7 @@ export default function App() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [modalMode, setModalMode] = useState<'standalone' | 'from-selection' | null>(null)
   const [detailRequest, setDetailRequest] = useState<OmRequest | null>(null)
+  const [detailWorkOrder, setDetailWorkOrder] = useState<OmWorkOrder | null>(null)
  
   // ---- Data loading ----
 
@@ -114,7 +116,7 @@ useEffect(() => {
 
 async function handleCreateWorkOrder(districtCode: string) {
   //const result = await createWorkOrder({ district: districtCode })
-  const result = await createWorkOrder({ district: districtCode, priority: 'No Requests Assigned', work_order_id: 'PENDING' })
+  const result = await createWorkOrder({ district: districtCode, urgency: 'No Requests Assigned', work_order_id: 'PENDING' })
   // If we're in from-selection mode, assign the selected requests to the new WO
   if (modalMode === 'from-selection' && selectedRequestIds.length > 0) {
     for (const reqId of selectedRequestIds) {
@@ -247,6 +249,11 @@ return (
           {loading ? 'Refreshing…' : '🔄 Refresh Work Orders'}
         </button>
       </div>
+            <div>
+        <span style={styles.helperText}>
+          Click a Work Order ID to view details and edit it.
+          </span>
+      </div>
 
       {workOrders.length === 0 ? (
         <em style={{ color: colors.darkGray }}>No work orders found.</em>
@@ -266,6 +273,7 @@ return (
               onSelect={setSelectedWorkOrderId}
               onUnassignRequest={handleUnassign}
               onDeleteWorkOrder={handleDeleteWorkOrder}
+              onOpenWorkOrder={setDetailWorkOrder}
             />
           )
         })
@@ -276,9 +284,15 @@ return (
     <section>
       <div style={styles.sectionHeader}>
         <h2 style={styles.h2}>Unassigned Requests</h2>
+
         <button type="button" style={styles.primaryButton} onClick={loadAll} disabled={loading}>
           {loading ? 'Refreshing…' : '🔄 Refresh Requests'}
         </button>
+      </div>
+      <div>
+        <span style={styles.helperText}>
+          Click a Request ID to view details and edit it. Select one or more requests to assign to a work order.
+          </span>
       </div>
 
       {unassignedRequests.length === 0 ? (
@@ -351,7 +365,7 @@ return (
 
       {noAssignableWorkOrders && (
         <div style={styles.warningText}>
-          No assignable work orders exist. (Create Work Order coming next.)
+          No assignable work orders exist. Create a Work Order first, then assign requests to it.
         </div>
       )}
     </section>
@@ -381,6 +395,25 @@ return (
     )
     // Keep the panel open showing the fresh data
     setDetailRequest(updated)
+  }}
+/>
+
+<WorkOrderDetailPanel
+  workOrder={detailWorkOrder}
+  onClose={() => setDetailWorkOrder(null)}
+  onWorkOrderUpdated={(updated) => {
+    // Patch the work order list so the row reflects new values
+    setWorkOrders((prev) =>
+      prev.map((w) => (w.objectId === updated.objectId ? updated : w)),
+    )
+    // Keep the panel open showing fresh data
+    setDetailWorkOrder(updated)
+  }}
+  onRequestDelete={async (wo) => {
+    // Close the panel first, then run App's existing delete flow
+    // (which also unassigns attached requests + shows the confirm modal flow).
+    setDetailWorkOrder(null)
+    await handleDeleteWorkOrder(wo)
   }}
 />
 
