@@ -8,6 +8,8 @@ import {
 } from './services/requestService'
 import { WorkOrderWithRequests } from './components/WorkOrderWithRequests'
 import { CreateWorkOrderModal } from './components/CreateWorkOrderModal'
+import { RequestDetailPanel } from './components/RequestDetailPanel'
+import { loadDomains } from './services/domainService'
 import {
   getWorkOrders,
   createWorkOrder,
@@ -58,17 +60,19 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [modalMode, setModalMode] = useState<'standalone' | 'from-selection' | null>(null)
-
+  const [detailRequest, setDetailRequest] = useState<OmRequest | null>(null)
+ 
   // ---- Data loading ----
 
 async function loadAll() {
   setLoading(true)
   setErrorMessage(null)
   try {
-    const [wos, assigned, unassigned] = await Promise.all([
+    const [wos, assigned, unassigned, _domains] = await Promise.all([
       getWorkOrders(),
       getAssignedRequests(),
       getUnassignedRequests(),
+      loadDomains(),
     ])
     setWorkOrders(wos)
     setAssignedRequests(assigned)
@@ -202,9 +206,16 @@ const canCreateFromSelection =
 // ---- JSX ----
 return (
   <div style={styles.page}>
-    <h1 style={styles.h1}>
-      OLHC Operations &amp; Maintenance<br />Work Order &amp; Request Portal
-    </h1>
+
+    <header style={styles.pageHeader}>
+      <img src="/logo.png" alt="DDG Logo" style={styles.logo} />
+      <div style={styles.pageTitleWrap}>
+        <h1 style={styles.h1}>
+          OLHC Operations &amp; Maintenance <br />Work Order &amp; Request Portal
+        </h1>
+      </div>
+    </header>
+
 
     <div style={styles.lastUpdated}>
       {lastUpdated
@@ -283,11 +294,18 @@ return (
                   onChange={() => toggleRequest(req.objectId)}
                 />
                 {' '}
-                <strong>{req.requestId}</strong>
-                {' · '}{req.urgency ?? '—'}
-                {' · '}{req.status ?? '—'}
-                {' · '}{req.title ?? 'Untitled'}
               </label>
+              <button
+                type="button"
+                onClick={() => setDetailRequest(req)}
+                style={styles.linkButton}
+                title="Open request detail panel"
+              >
+                {req.requestId ?? '(no ID)'}
+              </button>
+              {' · '}{req.urgency ?? '—'}
+              {' · '}{req.status ?? '—'}
+              {' · '}{req.requestTitle ?? 'Untitled'}
             </li>
           ))}
         </ul>
@@ -347,6 +365,30 @@ return (
     onConfirm={handleCreateWorkOrder}
   />
 )}
+
+
+<RequestDetailPanel
+  request={detailRequest}
+  onClose={() => setDetailRequest(null)}
+  onRequestUpdated={(updated) => {
+    // Update whichever list the row lives in. Since we're not editing
+    // request_assignment in this pass, rows don't move between lists.
+    setAssignedRequests((prev) =>
+      prev.map((r) => (r.objectId === updated.objectId ? updated : r)),
+    )
+    setUnassignedRequests((prev) =>
+      prev.map((r) => (r.objectId === updated.objectId ? updated : r)),
+    )
+    // Keep the panel open showing the fresh data
+    setDetailRequest(updated)
+  }}
+/>
+
+
+      <footer style={styles.appFooter}>
+        Developed by DDG Geospatial Technology &amp; Information Services Team
+        &nbsp;©2026
+      </footer>
 
   </div>
 )
