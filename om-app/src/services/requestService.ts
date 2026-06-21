@@ -389,9 +389,9 @@ export async function assignRequestToWorkOrder(
   const token = await getArcGISTokenForUrl(REQUEST_LAYER_URL)
 
   // 1. Look up the work order's GlobalID + human-readable ID
-  const workOrderParams = new URLSearchParams({
+const workOrderParams = new URLSearchParams({
   where: `OBJECTID = ${workOrderObjectId}`,
-  outFields: 'GlobalID,work_order_id',
+  outFields: 'GlobalID,work_order_id,work_order_status',   // 👈 added work_order_status
   returnGeometry: 'false',
   f: 'json',
   token,
@@ -419,6 +419,8 @@ const workOrderGlobalId =
   null
 
 const workOrderId = workOrderAttrs.work_order_id ?? null
+
+const workOrderStatus = workOrderAttrs.work_order_status ?? null
 
 if (!workOrderGlobalId) {
   console.error('Work order query result:', workOrderData)
@@ -466,6 +468,42 @@ if (!workOrderGlobalId) {
   if (!updateResult?.success) {
     console.error('ArcGIS request update result:', updateData)
     throw new Error('Request update failed')
+  }
+
+// 3. Business rule: if the work order was still a Draft, the act of assigning
+  //    a request to it means work is starting to take shape — promote it to Open.
+  //    (Future: this should be enforced by a SQL trigger; for now, do it client-side.)
+  if (workOrderStatus === 'Draft') {
+    const woUpdate = [
+      {
+        attributes: {
+          OBJECTID: workOrderObjectId,
+          work_order_status: 'Open',
+        },
+      },
+    ]
+
+    const woEditParams = new URLSearchParams({
+      f: 'json',
+      token,
+      updates: JSON.stringify(woUpdate),
+    })
+
+    const woUpdateResponse = await fetch(`${WORK_ORDER_LAYER_URL}/applyEdits`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: woEditParams.toString(),
+    })
+
+    const woUpdateData = await woUpdateResponse.json()
+
+    if (woUpdateData.error) {
+      // Don't fail the whole assignment over this — log and continue.
+      // The request is already assigned; the user can manually flip status if needed.
+      console.warn('Failed to auto-promote WO from Draft to Open:', woUpdateData.error)
+    } else if (!woUpdateData.updateResults?.[0]?.success) {
+      console.warn('WO auto-promote returned non-success:', woUpdateData)
+    }
   }
 
   return updateData

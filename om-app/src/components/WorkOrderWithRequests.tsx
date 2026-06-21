@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { OmRequest } from '../services/requestService'
 import type { OmWorkOrder } from '../services/workOrderService'
-import { colors } from '../theme'
+import { colors, styles } from '../theme'
 import { ConfirmModal } from './ConfirmModal'
 
 const CLOSED_REQUEST_STATUSES = ['Closed', 'Canceled']
@@ -16,6 +16,7 @@ type Props = {
   onSelect: (objectId: number | null) => void
   onUnassignRequest: (requestObjectId: number) => void
   onDeleteWorkOrder: (workOrder: OmWorkOrder) => Promise<void>
+  onOpenWorkOrder: (wo: OmWorkOrder) => void
 }
 
 export function WorkOrderWithRequests({
@@ -26,6 +27,7 @@ export function WorkOrderWithRequests({
   onSelect,
   onUnassignRequest,
   onDeleteWorkOrder,
+  onOpenWorkOrder,
 }: Props) {
   // ---- Local UI state for the delete confirmation ----
   const [isConfirmOpen, setIsConfirmOpen] = useState(false)
@@ -76,9 +78,22 @@ export function WorkOrderWithRequests({
           onChange={() => onSelect(workOrder.objectId)}
           style={{ accentColor: colors.blue, marginRight: 6 }}
         />
-        <strong style={{ color: colors.darkestGray }}>{workOrder.workOrderId}</strong>
+        
+<button
+  type="button"
+  onClick={(e) => {
+    e.preventDefault()        // don't trigger the surrounding <label>'s radio
+    e.stopPropagation()
+    onOpenWorkOrder(workOrder)
+  }}
+  style={styles.linkButton}
+  title="Open work order detail panel"
+>
+  {workOrder.workOrderId}
+</button>
+
         {' · '}{workOrder.district ?? '—'}
-        {' · '}{workOrder.priority ?? '—'}
+        {' · '}{workOrder.urgency ?? '—'}
         {' · '}
         <StatusPill status={workOrder.workOrderStatus} />
         {' · '}{workOrder.workOrderTitle ?? 'Untitled'}
@@ -120,7 +135,6 @@ export function WorkOrderWithRequests({
                     <strong>{req.requestId}</strong>
                     {' · '}{req.urgency ?? '—'}
                     {' · '}{req.status ?? '—'}
-                    {' · '}{req.title ?? 'Untitled'}
                   </span>
                   <button
                     type="button"
