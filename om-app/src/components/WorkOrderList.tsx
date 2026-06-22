@@ -79,7 +79,7 @@ function WorkOrderList({
               <th style={headerStyle}>Select</th>
               <th style={headerStyle}>Work Order ID</th>
               <th style={headerStyle}>District</th>
-              <th style={headerStyle}>Priority</th>
+              <th style={headerStyle}>Urgency</th>
               <th style={headerStyle}>Status</th>
               <th style={headerStyle}>Title</th>
             </tr>
@@ -106,7 +106,7 @@ function WorkOrderList({
                 </td>
                 <td style={cellStyle}>{workOrder.workOrderId ?? 'N/A'}</td>
                 <td style={cellStyle}>{workOrder.district ?? 'N/A'}</td>
-                <td style={cellStyle}>{workOrder.priority ?? 'N/A'}</td>
+                <td style={cellStyle}>{workOrder.urgency ?? 'N/A'}</td>
                 <td style={cellStyle}>{workOrder.workOrderStatus ?? 'N/A'}</td>
                 <td style={cellStyle}>{workOrder.workOrderTitle ?? 'N/A'}</td>
               </tr>
