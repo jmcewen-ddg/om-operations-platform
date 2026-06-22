@@ -4,6 +4,8 @@ import { colors } from '../theme'
 import { ConfirmModal } from './ConfirmModal'
 import { loadDomains, type DomainMap } from '../services/domainService'
 import { RequestNotesSection } from './RequestNotesSection'
+import { moveRequestToProgram } from '../services/requestService'
+import { MoveToInitiativeModal } from './MoveToInitiativeModal'
 import {
   getCategoryOptions,
   getSubcategoryOptions,
@@ -30,10 +32,10 @@ export function RequestDetailPanel({ request, onClose, onRequestUpdated }: Props
   const [draft, setDraft] = useState<Partial<OmRequest>>({})
   const [isEditing, setIsEditing] = useState(false)
   const [domains, setDomains] = useState<DomainMap | null>(null)
-
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [isDiscardConfirmOpen, setIsDiscardConfirmOpen] = useState(false)
+  const [isMoveModalOpen, setIsMoveModalOpen] = useState(false)
 
   const hasUnsavedChanges = isEditing && Object.keys(draft).length > 0
 
@@ -193,6 +195,16 @@ export function RequestDetailPanel({ request, onClose, onRequestUpdated }: Props
   const isBridge          = (liveCategory ?? '').toLowerCase() === 'bridge'
 
   if (!request) return null   // 👈 NOW comes after all hooks
+
+  
+// "Move to Program" is only offered when the request is in a clean triage state —
+// not already moved, not assigned to a WO, and not Closed/Canceled. If you need
+// to move a WO-assigned request, unassign it from the WO first.
+const canMoveToProgram =
+  (request.assignmentStatus === 'Unassigned' || request.assignmentStatus === null) &&
+  request.status !== 'Closed' &&
+  request.status !== 'Canceled'
+
 
   return (
     <>
@@ -518,14 +530,32 @@ export function RequestDetailPanel({ request, onClose, onRequestUpdated }: Props
             display: 'flex', justifyContent: 'flex-end', gap: 8,
           }}
         >
-          {!isEditing ? (
-            <>
-              <button type="button" onClick={attemptClose}
-                style={footerSecondaryBtn}>Close</button>
-              <button type="button" onClick={() => setIsEditing(true)}
-                style={footerPrimaryBtn(false)}>Edit</button>
-            </>
-          ) : (
+
+{!isEditing ? (
+  <>
+    <button type="button" onClick={attemptClose} style={footerSecondaryBtn}>Close</button>
+
+    {canMoveToProgram && (
+      <button
+        type="button"
+        onClick={() => setIsMoveModalOpen(true)}
+        style={{
+          background: colors.orange,
+          color: colors.darkestGray,
+          border: 'none', borderRadius: 4,
+          padding: '0.4rem 0.9rem',
+          cursor: 'pointer', fontWeight: 600,
+        }}
+        title="Move this request to a Maintenance Initiative or Capital Project"
+      >
+        Move to Program
+      </button>
+    )}
+
+    <button type="button" onClick={() => setIsEditing(true)} style={footerPrimaryBtn(false)}>Edit</button>
+  </>
+) : (
+
             <>
               {saveError && (
                 <div style={{
@@ -561,9 +591,45 @@ export function RequestDetailPanel({ request, onClose, onRequestUpdated }: Props
         onConfirm={confirmDiscard}
         message={<>You have unsaved edits to this request. If you close now, those changes will be lost.</>}
       />
+      <MoveToInitiativeModal
+  isOpen={isMoveModalOpen}
+  requestIdLabel={request.requestId}
+  onCancel={() => setIsMoveModalOpen(false)}
+  onConfirm={async ({ target, programLinkValue, reason }) => {
+    if (!request.globalId) throw new Error('Request is missing a GlobalID — cannot move.')
+    await moveRequestToProgram({
+      requestObjectId: request.objectId,
+      requestGlobalId: request.globalId,
+      target,
+      programLinkValue,
+      reason,
+    })
+    const targetAssignment =
+      target === 'maintenanceInitiative'
+        ? 'Moved to Maintenance Initiative'
+        : 'Moved to Capital Projects'
+    const now = Date.now()
+    const updated: OmRequest = {
+      ...request,
+      assignmentStatus: targetAssignment,
+      status: 'Closed',
+      assignedDate: now,
+      closedDate: now,
+      maintenanceInitiativeId:
+        target === 'maintenanceInitiative' ? programLinkValue : request.maintenanceInitiativeId,
+      capitalProjectId:
+        target === 'capitalProject' ? programLinkValue : request.capitalProjectId,
+      assignedWorkOrderGlobalId: null,
+      assignedWorkOrderId: null,
+    }
+    onRequestUpdated?.(updated)
+    setIsMoveModalOpen(false)
+  }}
+/>
     </>
   )
 }
+
 
 // ============================================================
 // Local helpers

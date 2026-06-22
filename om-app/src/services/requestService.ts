@@ -125,6 +125,7 @@ export type OmRequest = {
   requestorEmail: string | null
   requestorPhone: string | null
   requestorOrganization: string | null
+  submissionType: string | null
 
   // Assignment
   assignmentStatus: string | null              // request_assignment
@@ -228,6 +229,7 @@ return {
       requestorEmail: attrs.requestor_email ?? null,
       requestorPhone: attrs.requestor_phone ?? null,
       requestorOrganization: attrs.requestor_organization ?? null,
+      submissionType: attrs.submission_type ?? null,
 
       // Assignment
       assignmentStatus: attrs.request_assignment ?? null,
@@ -341,6 +343,7 @@ return {
       requestorEmail: attrs.requestor_email ?? null,
       requestorPhone: attrs.requestor_phone ?? null,
       requestorOrganization: attrs.requestor_organization ?? null,
+      submissionType: attrs.submission_type ?? null,
 
       // Assignment
       assignmentStatus: attrs.request_assignment ?? null,
