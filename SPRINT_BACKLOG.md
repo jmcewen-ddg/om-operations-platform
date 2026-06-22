@@ -147,3 +147,9 @@
 | **V2** | Epic 7 (Inspections) | Field workflow closes the loop |
 | **V3** | Epic 8 (Contractors + Public) | External users — biggest security/architecture lift |
 | **R&D** | Epic 10 (Drag-and-drop) | Whenever curiosity strikes |
+
+
+- [ ] Add relationship classes: om_request ↔ om_maintenance_initiative, om_request ↔ om_capital_project
+- [ ] Add proper `id` fields on MI / CP tables (currently using GlobalID as workaround)
+- [ ] Replace MoveToInitiativeModal free-text input with dropdown sourced from MI/CP feature services
+- [ ] Admin view for closed/moved requests (so users can find Moved-to-MI/CP records)
