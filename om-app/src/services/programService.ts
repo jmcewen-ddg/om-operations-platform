@@ -1,9 +1,8 @@
-import { arcgisConfig } from '../config/arcgis'
-
-export type ProgramType = 'MI' | 'CP'
+import { getArcGISTokenForUrl } from './arcgisAuth'
+import { programLinks, type ProgramTarget } from '../config/programLinks'
 
 export interface ProgramOption {
-  type: ProgramType
+  target: ProgramTarget
   objectId: number
   globalId: string
   name: string
@@ -39,8 +38,9 @@ interface CapitalProjectAttributes {
 
 async function queryFeatureLayer<TAttributes>(
   layerUrl: string,
-  token: string
 ): Promise<ArcGISQueryResponse<TAttributes>> {
+  const token = await getArcGISTokenForUrl(layerUrl)
+
   const params = new URLSearchParams({
     f: 'json',
     where: '1=1',
@@ -59,23 +59,31 @@ async function queryFeatureLayer<TAttributes>(
   const data = (await response.json()) as ArcGISQueryResponse<TAttributes>
 
   if (data.error) {
-    throw new Error(data.error.message || 'ArcGIS feature layer query returned an error')
+    const details = data.error.details?.length
+      ? ` ${data.error.details.join(' ')}`
+      : ''
+
+    throw new Error(
+      data.error.message
+        ? `${data.error.message}${details}`
+        : 'ArcGIS feature layer query returned an error',
+    )
   }
 
   return data
 }
 
-export async function getMaintenanceInitiatives(token: string): Promise<ProgramOption[]> {
-  const data = await queryFeatureLayer<MaintenanceInitiativeAttributes>(
-    arcgisConfig.services.maintenanceInitiativeLayerUrl,
-    token
-  )
+export async function getMaintenanceInitiatives(): Promise<ProgramOption[]> {
+  const target: ProgramTarget = 'maintenanceInitiative'
+  const layerUrl = programLinks[target].serviceUrl
+
+  const data = await queryFeatureLayer<MaintenanceInitiativeAttributes>(layerUrl)
 
   return (data.features ?? []).map((feature) => {
     const attrs = feature.attributes
 
     return {
-      type: 'MI',
+      target,
       objectId: attrs.OBJECTID,
       globalId: attrs.GlobalID,
       name: attrs.maintenance_initiative,
@@ -84,17 +92,17 @@ export async function getMaintenanceInitiatives(token: string): Promise<ProgramO
   })
 }
 
-export async function getCapitalProjects(token: string): Promise<ProgramOption[]> {
-  const data = await queryFeatureLayer<CapitalProjectAttributes>(
-    arcgisConfig.services.capitalProjectLayerUrl,
-    token
-  )
+export async function getCapitalProjects(): Promise<ProgramOption[]> {
+  const target: ProgramTarget = 'capitalProject'
+  const layerUrl = programLinks[target].serviceUrl
+
+  const data = await queryFeatureLayer<CapitalProjectAttributes>(layerUrl)
 
   return (data.features ?? []).map((feature) => {
     const attrs = feature.attributes
 
     return {
-      type: 'CP',
+      target,
       objectId: attrs.OBJECTID,
       globalId: attrs.GlobalID,
       name: attrs.capital_project,
@@ -104,12 +112,11 @@ export async function getCapitalProjects(token: string): Promise<ProgramOption[]
 }
 
 export async function getProgramOptions(
-  type: ProgramType,
-  token: string
+  target: ProgramTarget,
 ): Promise<ProgramOption[]> {
-  if (type === 'MI') {
-    return getMaintenanceInitiatives(token)
+  if (target === 'maintenanceInitiative') {
+    return getMaintenanceInitiatives()
   }
 
-  return getCapitalProjects(token)
+  return getCapitalProjects()
 }

@@ -463,8 +463,8 @@ const canMoveToProgram =
             <Field label="Assigned Email"     value={request.assignedToEmail} />
             <Field label="Requires Design"    value={request.requiresDesign} />
             <Field label="Design Status"      value={request.designStatus} />
-            <Field label="Maintenance Initiative" value={request.maintenanceInitiativeId} />
-            <Field label="Capital Project"    value={request.capitalProjectId} />
+            <Field label="Maintenance Initiative" value={request.maintenanceInitiativeGlobalId} />
+            <Field label="Capital Project"    value={request.capitalProjectGlobalId} />
             <Field label="Assignment Notes"   value={request.assignmentNotes} wide />
           </Section>
 
@@ -615,10 +615,10 @@ const canMoveToProgram =
       status: 'Closed',
       assignedDate: now,
       closedDate: now,
-      maintenanceInitiativeId:
-        target === 'maintenanceInitiative' ? programLinkValue : request.maintenanceInitiativeId,
-      capitalProjectId:
-        target === 'capitalProject' ? programLinkValue : request.capitalProjectId,
+      maintenanceInitiativeGlobalId:
+        target === 'maintenanceInitiative' ? programLinkValue : request.maintenanceInitiativeGlobalId,
+      capitalProjectGlobalId:
+        target === 'capitalProject' ? programLinkValue : request.capitalProjectGlobalId,
       assignedWorkOrderGlobalId: null,
       assignedWorkOrderId: null,
     }

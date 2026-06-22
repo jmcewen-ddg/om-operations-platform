@@ -21,13 +21,13 @@ export const programLinks = {
     serviceUrl: arcgisConfig.services.maintenanceInitiativeLayerUrl,
     linkField: 'GlobalID' as const,
     requestAssignmentValue: 'Moved to Maintenance Initiative',
-    requestIdFieldName: 'maintenance_initiative_id' as const,
+    requestIdFieldName: 'maintenance_initiative_globalid' as const,
   },
   capitalProject: {
     label: 'Capital Project',
     serviceUrl: arcgisConfig.services.capitalProjectLayerUrl,
     linkField: 'GlobalID' as const,
     requestAssignmentValue: 'Moved to Capital Projects',
-    requestIdFieldName: 'capital_project_id' as const,
+    requestIdFieldName: 'capital_project_globalid' as const,
   },
 } as const
