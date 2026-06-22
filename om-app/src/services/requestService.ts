@@ -1,6 +1,8 @@
 import { getArcGISTokenForUrl } from './arcgisAuth'
 import { applyEdits } from './arcgisRest'
 import { arcgisConfig } from '../config/arcgis'
+import { addRequestNote } from './requestNoteService'
+import { programLinks, type ProgramTarget } from '../config/programLinks'
 
 /**
  * Maps TS OmRequest field names (camelCase) → REST field names (snake_case).
@@ -680,4 +682,94 @@ export async function updateRequest(
     layerUrl: REQUEST_LAYER_URL,
     updates: [{ attributes: restAttributes }],
   })
+}
+/**
+ * Move a request out of triage into either a Maintenance Initiative or a
+ * Capital Project. This is a terminal lifecycle event for the request:
+ *   - request_assignment  → 'Moved to Maintenance Initiative' or 'Moved to Capital Projects'
+ *   - request_status      → 'Closed'
+ *   - maintenance_initiative_id / capital_project_id → the provided link value
+ *   - assigned_date       → now (reusing the generic "got assigned to something" field)
+ *   - closed_date         → now
+ *
+ * Also drops a Triage note capturing the move (and the user's reason if given),
+ * so the move is visible in the audit trail even before SQL status_history triggers exist.
+ *
+ * Future: SQL trigger should own the date stamps and assignment-value enforcement.
+ * When that lands, strip the client-side date logic from here.
+ */
+export async function moveRequestToProgram(params: {
+  requestObjectId: number
+  requestGlobalId: string
+  target: ProgramTarget
+  programLinkValue: string  // GlobalID for now (see programLinks.ts TODO)
+  reason?: string
+}): Promise<void> {
+  const { requestObjectId, requestGlobalId, target, programLinkValue, reason } = params
+
+  if (!requestObjectId) throw new Error('moveRequestToProgram: requestObjectId is required')
+  if (!requestGlobalId) throw new Error('moveRequestToProgram: requestGlobalId is required')
+  if (!programLinkValue?.trim()) throw new Error('moveRequestToProgram: programLinkValue is required')
+
+  const link = programLinks[target]
+  const now = Date.now()
+  const token = await getArcGISTokenForUrl(REQUEST_LAYER_URL)
+
+  // ---- 1. Update the request row ----
+  // Build the attributes dynamically so we hit the right *_id field per target.
+  const updateAttributes: Record<string, unknown> = {
+    OBJECTID: requestObjectId,
+    request_assignment: link.requestAssignmentValue,
+    request_status: 'Closed',
+    assigned_date: now,
+    closed_date: now,
+  }
+  updateAttributes[link.requestIdFieldName] = programLinkValue.trim()
+
+  // Defensive: if the request happened to be on a WO, clear the WO link so
+  // nothing thinks it's still attached. (We don't run the full unassign /
+  // WO-revert logic here — that's a known follow-up; see backlog.)
+  updateAttributes.assigned_work_order_globalid = null
+  updateAttributes.assigned_work_order_id = null
+
+  const editParams = new URLSearchParams({
+    f: 'json',
+    token,
+    updates: JSON.stringify([{ attributes: updateAttributes }]),
+  })
+
+  const updateResponse = await fetch(`${REQUEST_LAYER_URL}/applyEdits`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: editParams.toString(),
+  })
+  const updateData = await updateResponse.json()
+  if (updateData.error) {
+    console.error('moveRequestToProgram update error:', updateData.error)
+    throw new Error(updateData.error.message ?? 'Failed to move request')
+  }
+  const updateResult = updateData.updateResults?.[0]
+  if (!updateResult?.success) {
+    console.error('moveRequestToProgram non-success:', updateData)
+    throw new Error('Failed to move request')
+  }
+
+  // ---- 2. Auto-create a Triage note capturing the move ----
+  // We don't fail the move if note creation fails — log and continue.
+  // The request is already moved; users can add a note manually if needed.
+  const baseText = `Moved to ${link.label} ${programLinkValue.trim()}.`
+  const noteText = reason?.trim()
+    ? `${baseText} Reason: ${reason.trim()}`
+    : baseText
+
+  try {
+    await addRequestNote({
+      requestGlobalId,
+      noteType: 'Triage',
+      noteText,
+      noteDate: now,
+    })
+  } catch (err) {
+    console.warn('moveRequestToProgram: move succeeded but note creation failed:', err)
+  }
 }

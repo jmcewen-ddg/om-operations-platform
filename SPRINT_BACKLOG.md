@@ -17,6 +17,12 @@
 - [x] Apply OM brand color palette
 - [x] Database: `om_request_notes` + `om_work_order_notes` SDE tables w/ relationship classes
 - [x] Client-side enforcement: Draft → Open on first assignment, Open → Draft on last unassign, lock-on-Closed/Canceled
+- [x] Request notes — read/add/soft-delete in collapsible panel section
+- [x] Work order notes — read/add/soft-delete in detail panel
+- [x] Auto-populate note author from logged-in ArcGIS user
+- [x] Hoist feature service URLs to `arcgisConfig` (single source of truth)
+- [x] Client-side WO lifecycle rules: Draft↔Open promote/revert, lock-on-Closed/Canceled
+- [x] Move request → Maintenance Initiative / Capital Project (with auto-stamped dates + auto Triage note)
 
 ---
 
@@ -35,8 +41,16 @@
 - [ ] Remove a request from a work order (→ `Unassigned`)
 - [ ] Reassign a request between work orders
 - [ ] Cancel a request (with reason/notes)
-- [ ] Move request → Maintenance Initiative
-- [ ] Move request → Capital Project
+- [ ] Move requests
+    - [X] Move request → Maintenance Initiative
+    - [X] Move request → Capital Project
+    ## Follow-ups from Move-to-Program work
+    - [ ] Add relationship classes: om_request ↔ om_maintenance_initiative, om_request ↔ om_capital_project
+    - [ ] Add proper `id` fields on MI / CP tables (currently using GlobalID as workaround)
+    - [ ] Replace MoveToInitiativeModal free-text input with a dropdown sourced from MI/CP services
+    - [ ] Admin view for closed/moved requests (so users can find Moved-to-MI/CP records)
+    - [ ] Move-from-WO-direct-to-Program (auto-unassigns from WO, applies WO draft-revert rule)
+    - [ ] Return-to-Triage flow (undo accidental move) — currently admins must edit in ArcGIS Pro / SQL
 - [ ] Enforce district match — a request cannot be assigned to a WO in a different district
 
 ## 🎯 Epic 3: Notes
@@ -74,8 +88,8 @@
   - [ ] Highlight aging requests (color rules by urgency tier)
   - [ ] Immediate / Emergency / Standard SLA indicators
   - [ ] Unresponded-by-contractor highlight
-- [ ] PDF export of a work order (printable contractor packet)
-- [ ] PDF export of a request (optional)
+  - [ ] PDF export of a work order (printable contractor packet)
+  - [ ] PDF export of a request (optional)
 
 ## 🎯 Epic 7: Inspections (future)
 - [ ] Survey123 field app form for inspections (request-level)
@@ -134,6 +148,64 @@
 - [ ] Deployment story — where this app actually lives
 - [ ] Documentation / handoff guide
 - [ ] Onboarding flow for new internal users
+
+## 🎯 Epic 13: Stakeholder Requirements (from PO intake)
+
+### Intake / Reporting
+- [ ] Photo attachments on requests — optional, encouraged; consider hotline alternative
+- [ ] Severity ranking — internal-only field (not public-submitted)
+- [ ] Duplicate detection — define threshold (distance + type + time window)
+- [ ] Public intake — anti-bot / human verification (CAPTCHA-equivalent)
+
+### Triage & Assignment
+- [ ] Approval workflow for assignment (manager review before contractor sees it)
+- [ ] One request → multiple work orders (split)
+- [ ] Multiple requests → one work order (already supported by current assignment model)
+- [ ] Prime contractor + sub contractor model (one prime per DSA, override available)
+
+### Status & Workflow
+- [ ] Review proposed richer status domain from PO:
+  - Report: New, Under Review, Escalated to CE&I for Field Verification, Postponed,
+    Invalid Complaint, Advanced to Design, Advanced to Maintenance Work Order
+  - Work Order: Maintenance Work Order Issued (Standard / Emergency / Immediate),
+    In Progress, On Hold, Maintenance Completed, Work Order Closed, Canceled
+- [ ] Required fields on status change (e.g., photos to close, invoices, field reports)
+- [ ] Backwards transitions and skip-step transitions allowed
+- [ ] Stamp date on every status change (server-side via trigger)
+
+### SLAs
+- [ ] Urgency-tier SLAs: Standard 7 days, Emergency 24 hrs, Immediate 2 hrs
+- [ ] SLA breach indicators on dashboards + notifications
+
+### Work Execution & Updates
+- [ ] Standard field report template (Survey123)
+- [ ] Required photos: prior, 25%, 50%, completion
+- [ ] Pay-item / unit-price tracking on work orders
+- [ ] Monthly invoice tracking against work order budget
+- [ ] Partial-completion handling
+- [ ] One WO spanning multiple sites
+- [ ] CE&I inspector assignment and sign-off workflow
+
+### Roles
+- [ ] Add Designer (Consultant), CE&I (Consultant), Manager (DDG) roles to user-role model
+- [ ] Contractor-scoped views (see assigned WOs only)
+- [ ] Audit log for who-changed-what-when (server-side)
+
+### Notifications
+- [ ] Discuss + define triggers (new report, assignment, status change, overdue work)
+- [ ] Recipient routing (contractor / manager / reporter)
+- [ ] Delivery channels (email / SMS / in-app)
+
+### Reporting
+- [ ] Dashboard: open vs closed, SLA compliance, by type/location
+- [ ] Spending per District Service Area vs Budget
+- [ ] Real-time + scheduled (daily/weekly) report cadence
+
+### Edge Cases
+- [ ] Invalid report flagging with override capability
+- [ ] Contractor reassignment workflow (prime defaulted, secondary fallback)
+- [ ] WO archival to asset record on completion
+- [ ] Legal/compliance review once public-facing scope is locked
 
 ---
 
