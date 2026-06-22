@@ -53,8 +53,8 @@ const FIELD_MAP: Partial<Record<keyof OmRequest, string>> = {
   assignedToEmail: 'assigned_to_email',
   requiresDesign: 'requires_design',
   designStatus: 'design_status',
-  maintenanceInitiativeId: 'maintenance_initiative_id',
-  capitalProjectId: 'capital_project_id',
+  maintenanceInitiativeGlobalId: 'maintenance_initiative_globalid',
+  capitalProjectGlobalId: 'capital_project_globalid',
   assignmentNotes: 'assignment_notes',
 
   // Status & Lifecycle
@@ -137,8 +137,8 @@ export type OmRequest = {
   assignedTeam: string | null
   requiresDesign: string | null
   designStatus: string | null
-  maintenanceInitiativeId: string | null
-  capitalProjectId: string | null
+  maintenanceInitiativeGlobalId: string | null
+  capitalProjectGlobalId: string | null
 
   // Notes
   publicNotes: string | null
@@ -241,8 +241,8 @@ return {
       assignedTeam: attrs.assigned_team ?? null,
       requiresDesign: attrs.requires_design ?? null,
       designStatus: attrs.design_status ?? null,
-      maintenanceInitiativeId: attrs.maintenance_initiative_id ?? null,
-      capitalProjectId: attrs.capital_project_id ?? null,
+      maintenanceInitiativeGlobalId: attrs.maintenance_initiative_globalid ?? null,
+      capitalProjectGlobalId: attrs.capital_project_globalid ?? null,
 
       // Notes
       publicNotes: attrs.public_notes ?? null,
@@ -355,8 +355,8 @@ return {
       assignedTeam: attrs.assigned_team ?? null,
       requiresDesign: attrs.requires_design ?? null,
       designStatus: attrs.design_status ?? null,
-      maintenanceInitiativeId: attrs.maintenance_initiative_id ?? null,
-      capitalProjectId: attrs.capital_project_id ?? null,
+      maintenanceInitiativeGlobalId: attrs.maintenance_initiative_globalid ?? null,
+      capitalProjectGlobalId: attrs.capital_project_globalid ?? null,
 
       // Notes
       publicNotes: attrs.public_notes ?? null,
@@ -691,7 +691,7 @@ export async function updateRequest(
  * Capital Project. This is a terminal lifecycle event for the request:
  *   - request_assignment  → 'Moved to Maintenance Initiative' or 'Moved to Capital Projects'
  *   - request_status      → 'Closed'
- *   - maintenance_initiative_id / capital_project_id → the provided link value
+ *   - maintenance_initiative_globalid / capital_project_globalid → the provided link value
  *   - assigned_date       → now (reusing the generic "got assigned to something" field)
  *   - closed_date         → now
  *

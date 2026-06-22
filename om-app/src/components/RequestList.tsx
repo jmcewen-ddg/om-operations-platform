@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { getUnassignedRequests, type OmRequest } from '../services/requestService'
+import { useState } from 'react'
+import { type OmRequest } from '../services/requestService'
 
 type RequestListProps = {
   selectedRequestObjectId: number | null
@@ -10,9 +10,9 @@ function RequestList({
   selectedRequestObjectId,
   onSelectedRequestChange,
 }: RequestListProps) {
-  const [requests, setRequests] = useState<OmRequest[]>([])
-  const [loading, setLoading] = useState(false)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [requests] = useState<OmRequest[]>([])
+  const [loading] = useState(false)
+  const [errorMessage] = useState<string | null>(null)
 
   const handleRequestClick = (objectId: number) => {
     if (selectedRequestObjectId === objectId) {

@@ -1,3 +1,5 @@
+import { arcgisConfig } from './arcgis'
+
 /**
  * Where requests get "moved" to when triagers promote them out of the
  * triage queue. Currently the MI and CP tables don't have proper
@@ -16,18 +18,16 @@ export type ProgramTarget = 'maintenanceInitiative' | 'capitalProject'
 export const programLinks = {
   maintenanceInitiative: {
     label: 'Maintenance Initiative',
-    serviceUrl:
-      'https://gis.ddgpc.com/arcgis/rest/services/25-1755_OLHC/OLHC_MaintInit_CapProj/FeatureServer/0',
-    linkField: 'GlobalID' as const, // change to 'id' once real IDs exist
+    serviceUrl: arcgisConfig.services.maintenanceInitiativeLayerUrl,
+    linkField: 'GlobalID' as const,
     requestAssignmentValue: 'Moved to Maintenance Initiative',
-    requestIdFieldName: 'maintenance_initiative_id' as const,
+    requestIdFieldName: 'maintenance_initiative_globalid' as const,
   },
   capitalProject: {
     label: 'Capital Project',
-    serviceUrl:
-      'https://gis.ddgpc.com/arcgis/rest/services/25-1755_OLHC/OLHC_MaintInit_CapProj/FeatureServer/1',
+    serviceUrl: arcgisConfig.services.capitalProjectLayerUrl,
     linkField: 'GlobalID' as const,
     requestAssignmentValue: 'Moved to Capital Projects',
-    requestIdFieldName: 'capital_project_id' as const,
+    requestIdFieldName: 'capital_project_globalid' as const,
   },
 } as const
