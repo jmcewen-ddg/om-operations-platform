@@ -276,6 +276,7 @@ return (
               onUnassignRequest={handleUnassign}
               onDeleteWorkOrder={handleDeleteWorkOrder}
               onOpenWorkOrder={setDetailWorkOrder}
+              onOpenRequest={setDetailRequest}
             />
           )
         })
