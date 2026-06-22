@@ -92,11 +92,13 @@ async function loadAll() {
     loadAll()
   }, [])
 
+  /*
 // Auto-refresh every 30 seconds
 useEffect(() => {
   const interval = setInterval(loadAll, 30000)
   return () => clearInterval(interval)
 }, [])
+*/
 
 // Refresh when user returns to the tab
 useEffect(() => {
