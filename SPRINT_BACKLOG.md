@@ -23,6 +23,7 @@
 - [x] Hoist feature service URLs to `arcgisConfig` (single source of truth)
 - [x] Client-side WO lifecycle rules: Draft↔Open promote/revert, lock-on-Closed/Canceled
 - [x] Move request → Maintenance Initiative / Capital Project (with auto-stamped dates + auto Triage note)
+- [x] Move-to Project lookup records from feature services and uses dropdown selection instead of free-text GlobalID entry
 
 ---
 
@@ -43,11 +44,18 @@
 - [ ] Cancel a request (with reason/notes)
 - [ ] Move requests
     - [X] Move request → Maintenance Initiative
-    - [X] Move request → Capital Project
+    - [X] Move request → Capital Project  
+    - [x] Replace MoveToInitiative/CP services
+      - [x] Add MI / CP service URLs to arcgisConfig
+      - [x] Create reusable programService.ts for lookup lists
+      - [x] Normalize MI / CP records to ProgramOption
+      - [x] Update modal to show existing MI / CP records
+      - [x] Submit selected GlobalID/name instead of free text
+      - [x] Preserve auto-stamped move date + auto Triage note behavior
     ## Follow-ups from Move-to-Program work
     - [ ] Add relationship classes: om_request ↔ om_maintenance_initiative, om_request ↔ om_capital_project
     - [ ] Add proper `id` fields on MI / CP tables (currently using GlobalID as workaround)
-    - [ ] Replace MoveToInitiativeModal free-text input with a dropdown sourced from MI/CP services
+    - [X] Replace MoveToInitiativeModal free-text input with a dropdown sourced from MI/CP services
     - [ ] Admin view for closed/moved requests (so users can find Moved-to-MI/CP records)
     - [ ] Move-from-WO-direct-to-Program (auto-unassigns from WO, applies WO draft-revert rule)
     - [ ] Return-to-Triage flow (undo accidental move) — currently admins must edit in ArcGIS Pro / SQL
