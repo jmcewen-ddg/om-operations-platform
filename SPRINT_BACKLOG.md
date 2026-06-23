@@ -24,24 +24,27 @@
 - [x] Client-side WO lifecycle rules: Draft↔Open promote/revert, lock-on-Closed/Canceled
 - [x] Move request → Maintenance Initiative / Capital Project (with auto-stamped dates + auto Triage note)
 - [x] Move-to Project lookup records from feature services and uses dropdown selection instead of free-text GlobalID entry
+- [x] **Program Assignments view** — groups moved requests under their MI/CP with collapsible accordions, supports Return-to-Unassigned with required reason + auto-Triage note; respects new visibility scaffolding
+- [x] **Visibility scaffolding** — `roles.ts` + `requestFilters.ts` separate role-based visibility from UX filtering; ready for district filter UI and contractor scoping
+
 
 ---
 
 ## 🎯 Epic 1: Work Order Lifecycle (CRUD)
-- [ ] Delete a work order
-  - [ ] Confirm dialog
-  - [ ] Reassign attached requests → `Unassigned`
-  - [ ] Soft-delete (`DELETED = TRUE`) vs hard delete decision
-- [ ] Edit a work order (title, description, priority override, status)
-- [ ] View work order detail panel
-- [ ] Cancel a work order (status change, record retained)
+- [x] Delete a work order
+  - [X] Confirm dialog
+  - [X] Reassign attached requests → `Unassigned`
+  - [X] Soft-delete (`DELETED = TRUE`) vs hard delete decision
+- [X] Edit a work order (title, description, priority override, status)
+- [X] View work order detail panel
+- [X] Cancel a work order (status change, record retained)
 - [ ] "Submit to Contractor" action (status flip → triggers Power Automate notification)
 
 ## 🎯 Epic 2: Request ↔ Work Order Assignment
-- [ ] Add request(s) to existing work order
-- [ ] Remove a request from a work order (→ `Unassigned`)
-- [ ] Reassign a request between work orders
-- [ ] Cancel a request (with reason/notes)
+- [X] Add request(s) to existing work order
+- [X] Remove a request from a work order (→ `Unassigned`)
+- [X] Reassign a request between work orders
+- [X] Cancel a request (with reason/notes)
 - [ ] Move requests
     - [X] Move request → Maintenance Initiative
     - [X] Move request → Capital Project  
@@ -56,10 +59,15 @@
     - [ ] Add relationship classes: om_request ↔ om_maintenance_initiative, om_request ↔ om_capital_project
     - [ ] Add proper `id` fields on MI / CP tables (currently using GlobalID as workaround)
     - [X] Replace MoveToInitiativeModal free-text input with a dropdown sourced from MI/CP services
-    - [ ] Admin view for closed/moved requests (so users can find Moved-to-MI/CP records)
+    - [X] Admin view for closed/moved requests (so users can find Moved-to-MI/CP records)
     - [ ] Move-from-WO-direct-to-Program (auto-unassigns from WO, applies WO draft-revert rule)
-    - [ ] Return-to-Triage flow (undo accidental move) — currently admins must edit in ArcGIS Pro / SQL
+    - [X] Return-to-Unassigned flow for moved requests (undo accidental move) — previously admins must edit in ArcGIS Pro / SQL
 - [ ] Enforce district match — a request cannot be assigned to a WO in a different district
+
+- [ ] District filter UI on Program Assignments view (helper already exists)
+- [ ] Wire real role data into `getCurrentUser()` (Portal group lookup or user-role table)
+- [ ] Refactor: extract feature-attributes → OmRequest mapper (currently duplicated across 3 service functions)
+- [ ] Eventually embed a web map into Program Assignments view
 
 ## 🎯 Epic 3: Notes
 > Design decision: **notes are not editable in the app.** Archiving is enabled on the SDE notes tables, so the historical record is preserved by the database itself. If editing is ever introduced later, it will be governed by archive history, not in-app edit logic.
