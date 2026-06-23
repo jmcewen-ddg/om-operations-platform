@@ -380,6 +380,116 @@ console.log('Mapped requests:', mappedRequests)
 return mappedRequests
 }
 
+
+export async function getMovedRequests(): Promise<OmRequest[]> {
+  const token = await getArcGISTokenForUrl(REQUEST_LAYER_URL)
+
+  const params = new URLSearchParams({
+    where:
+      "request_assignment IN ('Moved to Maintenance Initiative', 'Moved to Capital Projects') " +
+      "AND (deleted IS NULL OR deleted <> 'Yes')",
+    outFields: '*',
+    returnGeometry: 'false',
+    f: 'json',
+    token,
+  })
+
+  const url = `${REQUEST_LAYER_URL}/query?${params.toString()}`
+
+  const response = await fetch(url)
+  const data = await response.json()
+
+  if (data.error) {
+    console.error('ArcGIS moved-request query error:', data.error)
+    throw new Error(data.error.message ?? 'Failed to query moved requests')
+  }
+
+  const features = data.features ?? []
+
+  return features.map((feature: any) => {
+    const attrs = feature.attributes ?? {}
+
+    return {
+      // Identity
+      objectId: attrs.OBJECTID,
+      globalId: normalizeGuid(attrs.GlobalID ?? attrs.globalid ?? attrs.GLOBALID),
+      requestId: attrs.request_id ?? null,
+
+      // Classification
+      district: attrs.district ?? null,
+      intakeType: attrs.intake_type ?? null,
+      source: attrs.source ?? null,
+      requestCategory: attrs.request_category ?? null,
+      requestSubcategory: attrs.request_subcategory ?? null,
+      requestTitle: attrs.request_title ?? null,
+      requestDescription: attrs.request_description ?? null,
+
+      // Triage
+      urgency: attrs.urgency ?? null,
+      priorityScore: attrs.priority_score ?? null,
+      dueDate: attrs.due_date ?? null,
+      triagedDate: attrs.triaged_date ?? null,
+
+      // Status
+      status: attrs.request_status ?? null,
+      submittedDate: attrs.submitted_date ?? null,
+      assignedDate: attrs.assigned_date ?? null,
+      canceledDate: attrs.canceled_date ?? null,
+      closedDate: attrs.closed_date ?? null,
+      cancellationReason: attrs.cancellation_reason ?? null,
+      closedReason: attrs.closed_reason ?? null,
+
+      // Location
+      originalLatitude: attrs.original_latitude ?? null,
+      originalLongitude: attrs.original_longitude ?? null,
+      correctedLatitude: attrs.corrected_latitude ?? null,
+      correctedLongitude: attrs.corrected_longitude ?? null,
+      locationCorrected: attrs.location_corrected ?? null,
+      locationDescription: attrs.location_description ?? null,
+      routeName: attrs.route_name ?? null,
+      routeId: attrs.route_id ?? null,
+      milepost: attrs.milepost ?? null,
+      parish: attrs.parish ?? null,
+      municipality: attrs.municipality ?? null,
+
+      // Requestor
+      requestorName: attrs.requestor_name ?? null,
+      requestorEmail: attrs.requestor_email ?? null,
+      requestorPhone: attrs.requestor_phone ?? null,
+      requestorOrganization: attrs.requestor_organization ?? null,
+      submissionType: attrs.submission_type ?? null,
+
+      // Assignment
+      assignmentStatus: attrs.request_assignment ?? null,
+      assignedWorkOrderGlobalId: normalizeGuid(attrs.assigned_work_order_globalid),
+      assignedWorkOrderId: attrs.assigned_work_order_id ?? null,
+      assignmentNotes: attrs.assignment_notes ?? null,
+      assignedToName: attrs.assigned_to_name ?? null,
+      assignedToEmail: attrs.assigned_to_email ?? null,
+      assignedTeam: attrs.assigned_team ?? null,
+      requiresDesign: attrs.requires_design ?? null,
+      designStatus: attrs.design_status ?? null,
+      maintenanceInitiativeGlobalId: attrs.maintenance_initiative_globalid ?? null,
+      capitalProjectGlobalId: attrs.capital_project_globalid ?? null,
+
+      // Notes
+      publicNotes: attrs.public_notes ?? null,
+      internalNotes: attrs.internal_notes ?? null,
+
+      // Soft delete
+      deleted: attrs.deleted ?? null,
+      deletedDate: attrs.deleted_date ?? null,
+      deletedBy: attrs.deleted_by ?? null,
+
+      // Audit
+      createdUser: attrs.created_user ?? null,
+      createdDate: attrs.created_date ?? null,
+      lastEditedUser: attrs.last_edited_user ?? null,
+      lastEditedDate: attrs.last_edited_date ?? null,
+    }
+  })
+}
+
 export async function assignRequestToWorkOrder(
   requestObjectId: number,
   workOrderObjectId: number
@@ -774,5 +884,114 @@ export async function moveRequestToProgram(params: {
     })
   } catch (err) {
     console.warn('moveRequestToProgram: move succeeded but note creation failed:', err)
+  }
+}
+
+/**
+ * Return a previously-moved request back to the unassigned triage pool.
+ *
+ * This is the inverse of moveRequestToProgram. It is the only supported way
+ * to undo a move-to-program action from within the app (admins can otherwise
+ * only do it via ArcGIS Pro / SQL).
+ *
+ * Effects on the request row:
+ *   - request_assignment              → 'Unassigned'
+ *   - request_status                  → 'Triaged' if triaged_date is set, else 'New'
+ *   - maintenance_initiative_globalid → null
+ *   - capital_project_globalid        → null
+ *   - assigned_date                   → null
+ *   - closed_date                     → null
+ *   - closed_reason                   → null
+ *
+ * Also drops a Triage note capturing the return + the user's reason so the
+ * action is visible in the audit trail.
+ *
+ * Future: SQL trigger should own date stamps and assignment-value enforcement.
+ * When that lands, strip the client-side logic from here.
+ */
+export async function returnRequestToUnassigned(params: {
+  requestObjectId: number
+  requestGlobalId: string
+  fromTarget: ProgramTarget
+  fromProgramName: string  // human-readable label for the note (e.g. "Vegetation Maintenance")
+  reason: string           // required
+  triagedDate: number | null
+}): Promise<void> {
+  const {
+    requestObjectId,
+    requestGlobalId,
+    fromTarget,
+    fromProgramName,
+    reason,
+    triagedDate,
+  } = params
+
+  if (!requestObjectId) {
+    throw new Error('returnRequestToUnassigned: requestObjectId is required')
+  }
+  if (!requestGlobalId) {
+    throw new Error('returnRequestToUnassigned: requestGlobalId is required')
+  }
+  if (!reason?.trim()) {
+    throw new Error('returnRequestToUnassigned: reason is required')
+  }
+
+  const link = programLinks[fromTarget]
+  const now = Date.now()
+  const restoredStatus = triagedDate ? 'Triaged' : 'New'
+
+  // ---- 1. Update the request row ----
+  const updateAttributes: Record<string, unknown> = {
+    OBJECTID: requestObjectId,
+    request_assignment: 'Unassigned',
+    request_status: restoredStatus,
+    assigned_date: null,
+    closed_date: null,
+    closed_reason: null,
+  }
+  // Clear whichever program link field was set
+  updateAttributes[link.requestIdFieldName] = null
+
+  const token = await getArcGISTokenForUrl(REQUEST_LAYER_URL)
+
+  const editParams = new URLSearchParams({
+    f: 'json',
+    token,
+    updates: JSON.stringify([{ attributes: updateAttributes }]),
+  })
+
+  const updateResponse = await fetch(`${REQUEST_LAYER_URL}/applyEdits`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: editParams.toString(),
+  })
+  const updateData = await updateResponse.json()
+  if (updateData.error) {
+    console.error('returnRequestToUnassigned update error:', updateData.error)
+    throw new Error(updateData.error.message ?? 'Failed to return request to unassigned')
+  }
+  const updateResult = updateData.updateResults?.[0]
+  if (!updateResult?.success) {
+    console.error('returnRequestToUnassigned non-success:', updateData)
+    throw new Error('Failed to return request to unassigned')
+  }
+
+  // ---- 2. Auto-create a Triage note capturing the return ----
+  const noteText =
+    `Returned to Unassigned from ${link.label}: ${fromProgramName}. ` +
+    `Reason: ${reason.trim()}`
+
+  try {
+    await addRequestNote({
+      requestGlobalId,
+      noteType: 'Triage',
+      noteText,
+      noteDate: now,
+    })
+  } catch (err) {
+    console.warn(
+      'returnRequestToUnassigned: return succeeded but note creation failed:',
+      err,
+    )
   }
 }

@@ -10,6 +10,7 @@ import { WorkOrderWithRequests } from './components/WorkOrderWithRequests'
 import { CreateWorkOrderModal } from './components/CreateWorkOrderModal'
 import { WorkOrderDetailPanel } from './components/WorkOrderDetailPanel'
 import { RequestDetailPanel } from './components/RequestDetailPanel'
+import { ProgramAssignmentsView } from './components/ProgramAssignmentsView'
 import { loadDomains } from './services/domainService'
 import {
   getWorkOrders,
@@ -63,6 +64,7 @@ export default function App() {
   const [modalMode, setModalMode] = useState<'standalone' | 'from-selection' | null>(null)
   const [detailRequest, setDetailRequest] = useState<OmRequest | null>(null)
   const [detailWorkOrder, setDetailWorkOrder] = useState<OmWorkOrder | null>(null)
+  const [activeView, setActiveView] = useState<'work' | 'programs'>('work')
  
   // ---- Data loading ----
 
@@ -234,6 +236,51 @@ return (
       <div style={{ textAlign: 'center', color: colors.darkGray }}>Loading…</div>
     )}
 
+{/* ===== View toggle ===== */}
+    <div
+      style={{
+        display: 'flex',
+        gap: 8,
+        margin: '0.75rem 0 1rem',
+        flexWrap: 'wrap',
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => setActiveView('work')}
+        style={{
+          background: activeView === 'work' ? colors.blue : colors.white,
+          color: activeView === 'work' ? colors.white : colors.darkestGray,
+          border: `1px solid ${activeView === 'work' ? colors.blue : colors.gray}`,
+          borderRadius: 4,
+          padding: '0.4rem 0.9rem',
+          cursor: 'pointer',
+          fontWeight: 600,
+        }}
+      >
+        Triage & Work Orders
+      </button>
+      <button
+        type="button"
+        onClick={() => setActiveView('programs')}
+        style={{
+          background: activeView === 'programs' ? colors.blue : colors.white,
+          color: activeView === 'programs' ? colors.white : colors.darkestGray,
+          border: `1px solid ${activeView === 'programs' ? colors.blue : colors.gray}`,
+          borderRadius: 4,
+          padding: '0.4rem 0.9rem',
+          cursor: 'pointer',
+          fontWeight: 600,
+        }}
+      >
+        Assigned to Maintenance Initiative / Capital Project
+      </button>
+    </div>
+
+
+
+{activeView === 'work' && (
+  <>
     {/* ===== Work Orders ===== */}
     <section>
       <div style={styles.sectionHeader}>
@@ -372,7 +419,16 @@ return (
         </div>
       )}
     </section>
-    
+    </>
+)}
+
+    {activeView === 'programs' && (
+      <ProgramAssignmentsView
+        onSelectRequest={setDetailRequest}
+        selectedRequestObjectId={detailRequest?.objectId ?? null}
+      />
+    )}
+
 {modalMode && (
   <CreateWorkOrderModal
     mode={modalMode}
