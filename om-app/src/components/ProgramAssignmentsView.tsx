@@ -10,8 +10,8 @@ import {
   getCapitalProjects,
   type ProgramOption,
 } from '../services/programService'
-import { getCurrentUser, type CurrentUser } from '../config/roles'
-import { applyAllRequestFilters } from '../utils/requestFilters'
+import { getCurrentUser, type CurrentUser } from '../lib/roles'
+import { applyAllRequestFilters } from '../domain/request/requestFilters'
 import { ProgramAssignmentsGroup } from './ProgramAssignmentsGroup'
 import { ReturnToUnassignedModal } from './ReturnToUnassignedModal'
 import { programLinks, type ProgramTarget } from '../config/programLinks'

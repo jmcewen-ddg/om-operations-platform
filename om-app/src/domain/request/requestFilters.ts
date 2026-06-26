@@ -1,5 +1,5 @@
-import type { OmRequest } from '../services/requestService'
-import { hasAllDistrictAccess, type CurrentUser } from '../config/roles'
+import type { OmRequest } from '../../services/requestService'
+import { hasAllDistrictAccess, type CurrentUser } from '../../lib/roles'
 
 /**
  * Two distinct concepts, deliberately kept apart:
