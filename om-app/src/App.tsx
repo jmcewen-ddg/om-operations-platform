@@ -214,7 +214,7 @@ return (
   <div style={styles.page}>
 
     <header style={styles.pageHeader}>
-      <img src="/logo.png" alt="DDG Logo" style={styles.logo} />
+      <img src={`${import.meta.env.BASE_URL}logo-olhc.png`} alt="OLHC Logo" style={styles.logo} />
       <div style={styles.pageTitleWrap}>
         <h1 style={styles.h1}>
           OLHC Operations &amp; Maintenance <br />Work Order &amp; Request Portal
