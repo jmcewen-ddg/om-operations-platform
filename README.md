@@ -78,15 +78,41 @@ npm run build
 
 ---
 
-## Roles
+## Role Model
 
-| Role | Scope | Permissions |
-|---|---|---|
-| Internal user | Assigned district(s) | Create, edit, assign within district |
-| Admin | All districts | Read-only across districts |
-| Dev | Everything | Full access for development and support |
-| Contractor *(future)* | Contracted districts | View and respond to assigned work orders |
-| Public *(future)* | None | Anonymous request submission only |
+### Internal (DDG)
+
+| # | Role | Scope | Can do |
+|---|---|---|---|
+| 1 | **Super Admin** | all districts | Everything below + schema/SDE/system config |
+| 2 | **Program Admin** | all districts | Everything below + full record & assignment control |
+| 3 | **Tier 2 Triager** | single / multi / all | Everything below + assign to MI/CP, flag Design required, escalate urgency to Emergency/Immediate, **cancel** a request (with reason), **close** a request by moving to a different program (with reason) |
+| 4 | **Tier 1 Triager** | single / multi / all | Verify intake data, set Standard urgency, create requests, advance status (Triaged → In Design / Ready for Work Order). **Cannot cancel or close.** |
+| 5 | **Field Inspector (CE&I)** | single / multi / all | Create inspection records tied to WOs (accept/reject work). **Read-only on requests and WOs.** Cannot create follow-up requests *(deferred)*. |
+
+**Cumulative permissions:** Program Admin ⊇ Tier 2 ⊇ Tier 1. Super Admin ⊇ everything.
+
+**Scope attribute:** every internal role carries `districts[]` — one, many, or `*` for all. Triagers default to `*` (program-wide), but the model supports scoping them later without a schema change.
+
+### External — credentialed
+
+| # | Role | Scope | Can do |
+|---|---|---|---|
+| 6 | **Designer (Consultant)** | TBD | *Lifecycle undefined — placeholder in `roles.ts`, no permissions wired yet* |
+| 7 | **Contractor** | their contracted districts only | See WOs assigned to them + the requests attached to those WOs (read-only on requests). Update a contractor-progress portion of the WO to signal status back to DDG. **Cannot see** unassigned requests or other contractors' WOs/requests. |
+| 8 | **Field Reporter** | n/a (submit only) | Submit requests with extended fields (severity, route ID, richer photos) |
+
+### External — anonymous
+
+| # | Role | Scope | Can do |
+|---|---|---|---|
+| 9 | **General Public** | n/a | Create-only via public intake form. No read access. |
+
+### Edge cases parked
+
+- **WO reassignment between contractors** — edge case, default is "doesn't happen." Retention rules to be specced if/when it comes up.
+- **Designer consultant lifecycle** — placeholder only. Will revisit when the Design phase workflow is defined.
+- **Field Inspector creating follow-up requests** — explicitly out of scope for v1.
 
 ---
 
