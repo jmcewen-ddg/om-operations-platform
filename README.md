@@ -119,7 +119,8 @@ npm run build
 ## Project docs
 
 - [`ROADMAP.md`](./ROADMAP.md) — where this is headed and why
-- [`SPRINT_BACKLOG.md`](./SPRINT_BACKLOG.md) — what's being worked on next
+- Project Board: https://github.com/users/jmcewen-ddg/projects/2/views/3
+- DEPRECATED - [`SPRINT_BACKLOG.md`](./SPRINT_BACKLOG.md) — what's being worked on next
 
 ---
 
