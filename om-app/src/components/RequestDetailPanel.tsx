@@ -16,6 +16,10 @@ import {
   canTriageEditStatus,
 } from '../utils/requestStatusHelpers'
 import { EditableField } from './EditableField'
+import { useUser } from '../lib/userContext'
+import { can, canEditAnyField } from '../lib/permissions'
+import { type RequestStatus } from '../domain/request/requestStatus'
+import { requestMatrix } from '../domain/request/requestMatrix'
 
 type Props = {
   request: OmRequest | null
@@ -27,6 +31,8 @@ type Props = {
 const TRIAGE_COMPLETE_STATUSES = new Set(['Triaged', 'In Design', 'Ready for Work Order'])
 
 export function RequestDetailPanel({ request, onClose, onRequestUpdated }: Props) {
+  const user = useUser()
+
   // ---- One draft object holds ALL pending edits ----
   // Keys present in draft = fields the user has touched. Empty = clean.
   const [draft, setDraft] = useState<Partial<OmRequest>>({})
@@ -196,15 +202,21 @@ export function RequestDetailPanel({ request, onClose, onRequestUpdated }: Props
 
   if (!request) return null   // 👈 NOW comes after all hooks
 
-  
-// "Move to Program" is only offered when the request is in a clean triage state —
-// not already moved, not assigned to a WO, and not Closed/Canceled. If you need
-// to move a WO-assigned request, unassign it from the WO first.
-const canMoveToProgram =
+  // "Move to Program": user permission + the request being in a clean state
+// (not already moved, not on a WO, not terminal).
+const status = (request.status ?? 'Draft') as RequestStatus
+const userCanMoveToProgram = can(user, 'moveToProgram', 'request', { status })
+const requestIsMoveable =
   (request.assignmentStatus === 'Unassigned' || request.assignmentStatus === null) &&
   request.status !== 'Closed' &&
   request.status !== 'Canceled'
+const canMoveToProgram = userCanMoveToProgram && requestIsMoveable
 
+// "Edit": user has write access to at least one field at the current status.
+// Matrix-driven — when the matrix changes, this updates with no code changes
+// here. Terminal statuses naturally lock out edit because every field becomes
+// R-only.
+const canEditRequest = canEditAnyField(user, 'request', requestMatrix, status)
 
   return (
     <>
@@ -551,8 +563,9 @@ const canMoveToProgram =
         Move to Program
       </button>
     )}
-
+    {canEditRequest && (
     <button type="button" onClick={() => setIsEditing(true)} style={footerPrimaryBtn(false)}>Edit</button>
+    )}
   </>
 ) : (
 

@@ -143,6 +143,33 @@ export function can(
 }
 
 /**
+ * Does this user have edit access to *any* field at the given status?
+ *
+ * Walks the matrix once. Returns true on the first field that grants
+ * write access (RW or create). Useful for gating "Edit" / "Open form"
+ * entry points where we don't yet know which field the user will edit.
+ *
+ * This is the matrix-driven equivalent of an `isInternal && !isTerminal`
+ * heuristic — except it stays correct as the matrix evolves. If you
+ * add a new role with edit rights at a "terminal" status, or remove
+ * edit rights from a previously-editable status, this function adjusts
+ * automatically with no code changes here.
+ */
+export function canEditAnyField(
+  user: CurrentUser,
+  resource: ResourceType,
+  matrix: FieldEditMatrix,
+  status: string,
+): boolean {
+  for (const field of Object.keys(matrix)) {
+    if (can(user, 'editField', resource, { field, status, matrix })) {
+      return true
+    }
+  }
+  return false
+}
+
+/**
  * Helper: delegate a field-edit check to the supplied matrix.
  * Returns false if required ctx is missing (defensive — better to deny
  * than to fall through to a permissive default).
