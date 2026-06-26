@@ -20,6 +20,7 @@ import {
 } from './services/workOrderService'
 // import { DISTRICTS } from './constants/districts'
 import { colors, styles } from './theme'
+import { UserProvider } from './lib/userContext'
 
 // ============================================================
 // MODULE-LEVEL HELPERS (no React state, just pure functions)
@@ -211,277 +212,279 @@ const canCreateFromSelection =
 
 // ---- JSX ----
 return (
-  <div style={styles.page}>
+  <UserProvider>
+    <div style={styles.page}>
 
-    <header style={styles.pageHeader}>
-      <img src={`${import.meta.env.BASE_URL}logo-olhc.png`} alt="OLHC Logo" style={styles.logo} />
-      <div style={styles.pageTitleWrap}>
-        <h1 style={styles.h1}>
-          OLHC Operations &amp; Maintenance <br />Work Order &amp; Request Portal
-        </h1>
-      </div>
-    </header>
-
-
-    <div style={styles.lastUpdated}>
-      {lastUpdated
-        ? `Last updated: ${timeAgo(lastUpdated)} (${lastUpdated.toLocaleTimeString()})`
-        : 'Not yet loaded'}
-    </div>
-
-    {errorMessage && (
-      <div style={styles.errorBanner}>{errorMessage}</div>
-    )}
-    {loading && (
-      <div style={{ textAlign: 'center', color: colors.darkGray }}>Loading…</div>
-    )}
-
-{/* ===== View toggle ===== */}
-    <div
-      style={{
-        display: 'flex',
-        gap: 8,
-        margin: '0.75rem 0 1rem',
-        flexWrap: 'wrap',
-      }}
-    >
-      <button
-        type="button"
-        onClick={() => setActiveView('work')}
-        style={{
-          background: activeView === 'work' ? colors.blue : colors.white,
-          color: activeView === 'work' ? colors.white : colors.darkestGray,
-          border: `1px solid ${activeView === 'work' ? colors.blue : colors.gray}`,
-          borderRadius: 4,
-          padding: '0.4rem 0.9rem',
-          cursor: 'pointer',
-          fontWeight: 600,
-        }}
-      >
-        Triage & Work Orders
-      </button>
-      <button
-        type="button"
-        onClick={() => setActiveView('programs')}
-        style={{
-          background: activeView === 'programs' ? colors.blue : colors.white,
-          color: activeView === 'programs' ? colors.white : colors.darkestGray,
-          border: `1px solid ${activeView === 'programs' ? colors.blue : colors.gray}`,
-          borderRadius: 4,
-          padding: '0.4rem 0.9rem',
-          cursor: 'pointer',
-          fontWeight: 600,
-        }}
-      >
-        Assigned to Maintenance Initiative / Capital Project
-      </button>
-    </div>
-
-
-
-{activeView === 'work' && (
-  <>
-    {/* ===== Work Orders ===== */}
-    <section>
-      <div style={styles.sectionHeader}>
-        <h2 style={styles.h2}>Work Orders</h2>
-        
-<button
-  type="button"
-  style={styles.primaryButton}
-  onClick={() => setModalMode('standalone')}
->
-  + New Work Order
-</button>
-
-        <button type="button" style={styles.primaryButton} onClick={loadAll} disabled={loading}>
-          {loading ? 'Refreshing…' : '🔄 Refresh Work Orders'}
-        </button>
-      </div>
-            <div>
-        <span style={styles.helperText}>
-          Click a Work Order ID to view details and edit it.
-          </span>
-      </div>
-
-      {workOrders.length === 0 ? (
-        <em style={{ color: colors.darkGray }}>No work orders found.</em>
-      ) : (
-        workOrders.map((wo) => {
-          const reqsForThisWo = assignedRequests.filter(
-            (r) => normalize(r.assignedWorkOrderGlobalId) === normalize(wo.globalId)
-          )
-          const assignable = isWorkOrderAssignable(wo)
-          return (
-            <WorkOrderWithRequests
-              key={wo.objectId}
-              workOrder={wo}
-              assignedRequests={reqsForThisWo}
-              isSelected={selectedWorkOrderId === wo.objectId}
-              isAssignable={assignable}
-              onSelect={setSelectedWorkOrderId}
-              onUnassignRequest={handleUnassign}
-              onDeleteWorkOrder={handleDeleteWorkOrder}
-              onOpenWorkOrder={setDetailWorkOrder}
-              onOpenRequest={setDetailRequest}
-            />
-          )
-        })
-      )}
-    </section>
-
-    {/* ===== Unassigned Requests ===== */}
-    <section>
-      <div style={styles.sectionHeader}>
-        <h2 style={styles.h2}>Unassigned Requests</h2>
-
-        <button type="button" style={styles.primaryButton} onClick={loadAll} disabled={loading}>
-          {loading ? 'Refreshing…' : '🔄 Refresh Requests'}
-        </button>
-      </div>
-      <div>
-        <span style={styles.helperText}>
-          Click a Request ID to view details and edit it. Select one or more requests to assign to a work order.
-          </span>
-      </div>
-
-      {unassignedRequests.length === 0 ? (
-        <em style={{ color: colors.darkGray }}>No unassigned requests.</em>
-      ) : (
-        <ul style={{ listStyle: 'none', padding: 0 }}>
-          {unassignedRequests.map((req) => (
-            <li key={req.objectId} style={{ padding: '0.25rem 0', color: colors.darkestGray }}>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={selectedRequestIds.includes(req.objectId)}
-                  onChange={() => toggleRequest(req.objectId)}
-                />
-                {' '}
-              </label>
-              <button
-                type="button"
-                onClick={() => setDetailRequest(req)}
-                style={styles.linkButton}
-                title="Open request detail panel"
-              >
-                {req.requestId ?? '(no ID)'}
-              </button>
-              {' · '}{req.urgency ?? '—'}
-              {' · '}{req.status ?? '—'}
-              {' · '}{req.requestTitle ?? 'Untitled'}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <div style={{ textAlign: 'center', marginTop: '0.75rem' }}>
-        <button
-          onClick={handleAssign}
-          disabled={!canAssign}
-          style={canAssign ? styles.successButton : styles.disabledButton}
-          title={
-            noAssignableWorkOrders
-              ? 'No assignable work orders. Create one first.'
-              : !selectedWorkOrderId
-              ? 'Pick a work order'
-              : !selectedWoIsAssignable
-              ? 'Selected work order is closed'
-              : selectedRequestIds.length === 0
-              ? 'Pick at least one request'
-              : ''
-          }
-        >
-          Assign Selected to Selected Work Order
-        </button>
-        
-<button
-  type="button"
-  disabled={!canCreateFromSelection}
-  onClick={() => setModalMode('from-selection')}
-  style={canCreateFromSelection ? styles.primaryButton : styles.disabledButton}
-  title={
-    selectedRequestIds.length === 0
-      ? 'Select at least one request'
-      : selectedDistricts.length > 1
-      ? 'Selected requests must all be in the same service area'
-      : ''
-  }
->
-  + Create New Work Order from Selection
-</button>
-
-      </div>
-
-      {noAssignableWorkOrders && (
-        <div style={styles.warningText}>
-          No assignable work orders exist. Create a Work Order first, then assign requests to it.
+      <header style={styles.pageHeader}>
+        <img src={`${import.meta.env.BASE_URL}logo-olhc.png`} alt="OLHC Logo" style={styles.logo} />
+        <div style={styles.pageTitleWrap}>
+          <h1 style={styles.h1}>
+            OLHC Operations &amp; Maintenance <br />Work Order &amp; Request Portal
+          </h1>
         </div>
+      </header>
+
+
+      <div style={styles.lastUpdated}>
+        {lastUpdated
+          ? `Last updated: ${timeAgo(lastUpdated)} (${lastUpdated.toLocaleTimeString()})`
+          : 'Not yet loaded'}
+      </div>
+
+      {errorMessage && (
+        <div style={styles.errorBanner}>{errorMessage}</div>
       )}
-    </section>
-    </>
-)}
+      {loading && (
+        <div style={{ textAlign: 'center', color: colors.darkGray }}>Loading…</div>
+      )}
 
-    {activeView === 'programs' && (
-      <ProgramAssignmentsView
-        onSelectRequest={setDetailRequest}
-        selectedRequestObjectId={detailRequest?.objectId ?? null}
-      />
-    )}
+  {/* ===== View toggle ===== */}
+      <div
+        style={{
+          display: 'flex',
+          gap: 8,
+          margin: '0.75rem 0 1rem',
+          flexWrap: 'wrap',
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setActiveView('work')}
+          style={{
+            background: activeView === 'work' ? colors.blue : colors.white,
+            color: activeView === 'work' ? colors.white : colors.darkestGray,
+            border: `1px solid ${activeView === 'work' ? colors.blue : colors.gray}`,
+            borderRadius: 4,
+            padding: '0.4rem 0.9rem',
+            cursor: 'pointer',
+            fontWeight: 600,
+          }}
+        >
+          Triage & Work Orders
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveView('programs')}
+          style={{
+            background: activeView === 'programs' ? colors.blue : colors.white,
+            color: activeView === 'programs' ? colors.white : colors.darkestGray,
+            border: `1px solid ${activeView === 'programs' ? colors.blue : colors.gray}`,
+            borderRadius: 4,
+            padding: '0.4rem 0.9rem',
+            cursor: 'pointer',
+            fontWeight: 600,
+          }}
+        >
+          Assigned to Maintenance Initiative / Capital Project
+        </button>
+      </div>
 
-{modalMode && (
-  <CreateWorkOrderModal
-    mode={modalMode}
-    derivedDistrict={derivedDistrict}
-    selectedCount={selectedRequestIds.length}
-    onCancel={() => setModalMode(null)}
-    onConfirm={handleCreateWorkOrder}
+
+
+  {activeView === 'work' && (
+    <>
+      {/* ===== Work Orders ===== */}
+      <section>
+        <div style={styles.sectionHeader}>
+          <h2 style={styles.h2}>Work Orders</h2>
+          
+  <button
+    type="button"
+    style={styles.primaryButton}
+    onClick={() => setModalMode('standalone')}
+  >
+    + New Work Order
+  </button>
+
+          <button type="button" style={styles.primaryButton} onClick={loadAll} disabled={loading}>
+            {loading ? 'Refreshing…' : '🔄 Refresh Work Orders'}
+          </button>
+        </div>
+              <div>
+          <span style={styles.helperText}>
+            Click a Work Order ID to view details and edit it.
+            </span>
+        </div>
+
+        {workOrders.length === 0 ? (
+          <em style={{ color: colors.darkGray }}>No work orders found.</em>
+        ) : (
+          workOrders.map((wo) => {
+            const reqsForThisWo = assignedRequests.filter(
+              (r) => normalize(r.assignedWorkOrderGlobalId) === normalize(wo.globalId)
+            )
+            const assignable = isWorkOrderAssignable(wo)
+            return (
+              <WorkOrderWithRequests
+                key={wo.objectId}
+                workOrder={wo}
+                assignedRequests={reqsForThisWo}
+                isSelected={selectedWorkOrderId === wo.objectId}
+                isAssignable={assignable}
+                onSelect={setSelectedWorkOrderId}
+                onUnassignRequest={handleUnassign}
+                onDeleteWorkOrder={handleDeleteWorkOrder}
+                onOpenWorkOrder={setDetailWorkOrder}
+                onOpenRequest={setDetailRequest}
+              />
+            )
+          })
+        )}
+      </section>
+
+      {/* ===== Unassigned Requests ===== */}
+      <section>
+        <div style={styles.sectionHeader}>
+          <h2 style={styles.h2}>Unassigned Requests</h2>
+
+          <button type="button" style={styles.primaryButton} onClick={loadAll} disabled={loading}>
+            {loading ? 'Refreshing…' : '🔄 Refresh Requests'}
+          </button>
+        </div>
+        <div>
+          <span style={styles.helperText}>
+            Click a Request ID to view details and edit it. Select one or more requests to assign to a work order.
+            </span>
+        </div>
+
+        {unassignedRequests.length === 0 ? (
+          <em style={{ color: colors.darkGray }}>No unassigned requests.</em>
+        ) : (
+          <ul style={{ listStyle: 'none', padding: 0 }}>
+            {unassignedRequests.map((req) => (
+              <li key={req.objectId} style={{ padding: '0.25rem 0', color: colors.darkestGray }}>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={selectedRequestIds.includes(req.objectId)}
+                    onChange={() => toggleRequest(req.objectId)}
+                  />
+                  {' '}
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setDetailRequest(req)}
+                  style={styles.linkButton}
+                  title="Open request detail panel"
+                >
+                  {req.requestId ?? '(no ID)'}
+                </button>
+                {' · '}{req.urgency ?? '—'}
+                {' · '}{req.status ?? '—'}
+                {' · '}{req.requestTitle ?? 'Untitled'}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div style={{ textAlign: 'center', marginTop: '0.75rem' }}>
+          <button
+            onClick={handleAssign}
+            disabled={!canAssign}
+            style={canAssign ? styles.successButton : styles.disabledButton}
+            title={
+              noAssignableWorkOrders
+                ? 'No assignable work orders. Create one first.'
+                : !selectedWorkOrderId
+                ? 'Pick a work order'
+                : !selectedWoIsAssignable
+                ? 'Selected work order is closed'
+                : selectedRequestIds.length === 0
+                ? 'Pick at least one request'
+                : ''
+            }
+          >
+            Assign Selected to Selected Work Order
+          </button>
+          
+  <button
+    type="button"
+    disabled={!canCreateFromSelection}
+    onClick={() => setModalMode('from-selection')}
+    style={canCreateFromSelection ? styles.primaryButton : styles.disabledButton}
+    title={
+      selectedRequestIds.length === 0
+        ? 'Select at least one request'
+        : selectedDistricts.length > 1
+        ? 'Selected requests must all be in the same service area'
+        : ''
+    }
+  >
+    + Create New Work Order from Selection
+  </button>
+
+        </div>
+
+        {noAssignableWorkOrders && (
+          <div style={styles.warningText}>
+            No assignable work orders exist. Create a Work Order first, then assign requests to it.
+          </div>
+        )}
+      </section>
+      </>
+  )}
+
+      {activeView === 'programs' && (
+        <ProgramAssignmentsView
+          onSelectRequest={setDetailRequest}
+          selectedRequestObjectId={detailRequest?.objectId ?? null}
+        />
+      )}
+
+  {modalMode && (
+    <CreateWorkOrderModal
+      mode={modalMode}
+      derivedDistrict={derivedDistrict}
+      selectedCount={selectedRequestIds.length}
+      onCancel={() => setModalMode(null)}
+      onConfirm={handleCreateWorkOrder}
+    />
+  )}
+
+
+  <RequestDetailPanel
+    request={detailRequest}
+    onClose={() => setDetailRequest(null)}
+    onRequestUpdated={(updated) => {
+      // Update whichever list the row lives in. Since we're not editing
+      // request_assignment in this pass, rows don't move between lists.
+      setAssignedRequests((prev) =>
+        prev.map((r) => (r.objectId === updated.objectId ? updated : r)),
+      )
+      setUnassignedRequests((prev) =>
+        prev.map((r) => (r.objectId === updated.objectId ? updated : r)),
+      )
+      // Keep the panel open showing the fresh data
+      setDetailRequest(updated)
+    }}
   />
-)}
+
+  <WorkOrderDetailPanel
+    workOrder={detailWorkOrder}
+    onClose={() => setDetailWorkOrder(null)}
+    onWorkOrderUpdated={(updated) => {
+      // Patch the work order list so the row reflects new values
+      setWorkOrders((prev) =>
+        prev.map((w) => (w.objectId === updated.objectId ? updated : w)),
+      )
+      // Keep the panel open showing fresh data
+      setDetailWorkOrder(updated)
+    }}
+    onRequestDelete={async (wo) => {
+      // Close the panel first, then run App's existing delete flow
+      // (which also unassigns attached requests + shows the confirm modal flow).
+      setDetailWorkOrder(null)
+      await handleDeleteWorkOrder(wo)
+    }}
+  />
 
 
-<RequestDetailPanel
-  request={detailRequest}
-  onClose={() => setDetailRequest(null)}
-  onRequestUpdated={(updated) => {
-    // Update whichever list the row lives in. Since we're not editing
-    // request_assignment in this pass, rows don't move between lists.
-    setAssignedRequests((prev) =>
-      prev.map((r) => (r.objectId === updated.objectId ? updated : r)),
-    )
-    setUnassignedRequests((prev) =>
-      prev.map((r) => (r.objectId === updated.objectId ? updated : r)),
-    )
-    // Keep the panel open showing the fresh data
-    setDetailRequest(updated)
-  }}
-/>
+        <footer style={styles.appFooter}>
+          Developed by DDG Geospatial Technology &amp; Information Services Team
+          &nbsp;©2026
+        </footer>
 
-<WorkOrderDetailPanel
-  workOrder={detailWorkOrder}
-  onClose={() => setDetailWorkOrder(null)}
-  onWorkOrderUpdated={(updated) => {
-    // Patch the work order list so the row reflects new values
-    setWorkOrders((prev) =>
-      prev.map((w) => (w.objectId === updated.objectId ? updated : w)),
-    )
-    // Keep the panel open showing fresh data
-    setDetailWorkOrder(updated)
-  }}
-  onRequestDelete={async (wo) => {
-    // Close the panel first, then run App's existing delete flow
-    // (which also unassigns attached requests + shows the confirm modal flow).
-    setDetailWorkOrder(null)
-    await handleDeleteWorkOrder(wo)
-  }}
-/>
-
-
-      <footer style={styles.appFooter}>
-        Developed by DDG Geospatial Technology &amp; Information Services Team
-        &nbsp;©2026
-      </footer>
-
-  </div>
+    </div>
+  </UserProvider>
 )
 }
