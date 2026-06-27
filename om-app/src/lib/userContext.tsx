@@ -15,15 +15,19 @@
  *     so consumers can always assume "user is ready."
  */
 
+
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
   type ReactNode,
 } from 'react'
-import { getCurrentUser, type CurrentUser } from './roles'
+import { getCurrentUser, type CurrentUser, type Role } from './roles'
 import { colors } from '../theme'
+
 
 // ---------------------------------------------------------------------------
 // Context
@@ -36,7 +40,25 @@ import { colors } from '../theme'
 type UserContextValue =
   | { state: 'loading' }
   | { state: 'error'; error: Error }
-  | { state: 'ready'; user: CurrentUser }
+  | {
+      state: 'ready'
+      /** The real signed-in user, untouched by any override. */
+      actualUser: CurrentUser
+      /**
+       * The user as the rest of the app should see them. When a role
+       * override is active (dev/UAT only), `effectiveUser.role` is the
+       * overridden role; otherwise it equals `actualUser`.
+       *
+       * Consumers calling useUser() get this — so existing permission
+       * checks (can(user.role, ...), atLeast(user.role, ...)) automatically
+       * respect the override with no call-site changes.
+       */
+      effectiveUser: CurrentUser
+      /** Current override, or null when not overriding. */
+      roleOverride: Role | null
+      /** Set or clear the override. Pass null to clear. */
+      setRoleOverride: (role: Role | null) => void
+    }
 
 const UserContext = createContext<UserContextValue | null>(null)
 
@@ -63,7 +85,15 @@ export function UserProvider({
   loadingFallback,
   errorFallback,
 }: UserProviderProps) {
-  const [value, setValue] = useState<UserContextValue>({ state: 'loading' })
+// Inner state: just the load result. We split out override into its
+  // own state so toggling the override doesn't re-fire the load effect.
+  type LoadState =
+    | { state: 'loading' }
+    | { state: 'error'; error: Error }
+    | { state: 'ready'; actualUser: CurrentUser }
+
+  const [load, setLoad] = useState<LoadState>({ state: 'loading' })
+  const [roleOverride, setRoleOverrideState] = useState<Role | null>(null)
 
   // Reload key — incrementing forces the effect to re-run, used by the
   // error-state retry button.
@@ -71,21 +101,45 @@ export function UserProvider({
 
   useEffect(() => {
     let cancelled = false
-    setValue({ state: 'loading' })
+    setLoad({ state: 'loading' })
     getCurrentUser()
       .then((user) => {
-        if (!cancelled) setValue({ state: 'ready', user })
+        if (!cancelled) setLoad({ state: 'ready', actualUser: user })
       })
       .catch((err: unknown) => {
         if (cancelled) return
         const error =
           err instanceof Error ? err : new Error(String(err ?? 'Unknown error'))
-        setValue({ state: 'error', error })
+        setLoad({ state: 'error', error })
       })
     return () => {
       cancelled = true
     }
   }, [reloadKey])
+
+  // Stable setter for the override. Memoized so context consumers
+  // don't re-render just because the provider re-rendered.
+  const setRoleOverride = useCallback((role: Role | null) => {
+    setRoleOverrideState(role)
+  }, [])
+
+  // Build the public context value. effectiveUser is the actual user
+  // with role swapped when an override is active.
+  const value: UserContextValue = useMemo(() => {
+    if (load.state === 'loading') return { state: 'loading' }
+    if (load.state === 'error') return { state: 'error', error: load.error }
+    const effectiveUser: CurrentUser =
+      roleOverride === null
+        ? load.actualUser
+        : { ...load.actualUser, role: roleOverride }
+    return {
+      state: 'ready',
+      actualUser: load.actualUser,
+      effectiveUser,
+      roleOverride,
+      setRoleOverride,
+    }
+  }, [load, roleOverride, setRoleOverride])
 
   if (value.state === 'loading') {
     return <>{loadingFallback ?? <DefaultLoadingFallback />}</>
@@ -136,7 +190,7 @@ export function useUser(): CurrentUser {
         'in loading/error states.',
     )
   }
-  return ctx.user
+  return ctx.effectiveUser
 }
 
 /**
@@ -147,7 +201,52 @@ export function useUser(): CurrentUser {
 export function useUserOrNull(): CurrentUser | null {
   const ctx = useContext(UserContext)
   if (ctx === null || ctx.state !== 'ready') return null
-  return ctx.user
+  return ctx.effectiveUser
+}
+/**
+ * Returns the *actual* signed-in user, ignoring any dev/UAT role override.
+ * Use this only when you specifically need the real identity — e.g., the
+ * RoleSwitcher displaying "actual role: superAdmin", or audit logging.
+ * For permission checks, use useUser().
+ */
+export function useActualUser(): CurrentUser {
+  const ctx = useContext(UserContext)
+  if (ctx === null) {
+    throw new Error(
+      'useActualUser() must be called inside a <UserProvider>.',
+    )
+  }
+  if (ctx.state !== 'ready') {
+    throw new Error(
+      `useActualUser() called while context state is "${ctx.state}".`,
+    )
+  }
+  return ctx.actualUser
+}
+
+/**
+ * Returns the current role override (or null) and a setter to change it.
+ * Intended for the dev/UAT RoleSwitcher — production code shouldn't need this.
+ *
+ * The override lives in React state only, so a page refresh always
+ * resets to the actual signed-in user's role.
+ */
+export function useRoleOverride(): {
+  roleOverride: Role | null
+  setRoleOverride: (role: Role | null) => void
+} {
+  const ctx = useContext(UserContext)
+  if (ctx === null) {
+    throw new Error(
+      'useRoleOverride() must be called inside a <UserProvider>.',
+    )
+  }
+  if (ctx.state !== 'ready') {
+    throw new Error(
+      `useRoleOverride() called while context state is "${ctx.state}".`,
+    )
+  }
+  return { roleOverride: ctx.roleOverride, setRoleOverride: ctx.setRoleOverride }
 }
 
 // ---------------------------------------------------------------------------

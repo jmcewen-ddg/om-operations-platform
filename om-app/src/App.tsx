@@ -21,6 +21,7 @@ import {
 // import { DISTRICTS } from './constants/districts'
 import { colors, styles } from './theme'
 import { UserProvider } from './lib/userContext'
+import { RoleSwitcher } from './components/dev/RoleSwitcher'
 
 // ============================================================
 // MODULE-LEVEL HELPERS (no React state, just pure functions)
@@ -213,7 +214,9 @@ const canCreateFromSelection =
 // ---- JSX ----
 return (
   <UserProvider>
+    <RoleSwitcher />
     <div style={styles.page}>
+
 
       <header style={styles.pageHeader}>
         <img src={`${import.meta.env.BASE_URL}logo-olhc.png`} alt="OLHC Logo" style={styles.logo} />
