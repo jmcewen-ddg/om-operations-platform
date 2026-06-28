@@ -21,6 +21,8 @@ import { useUser } from '../lib/userContext'
 import { can, canEditAnyField } from '../lib/permissions'
 import { type RequestStatus } from '../domain/request/requestStatus'
 import { requestMatrix } from '../domain/request/requestMatrix'
+import { MatrixFieldProvider } from '../lib/matrixFieldContext'
+import { MatrixField } from './MatrixField'
 import { CancelRequestModal } from './CancelRequestModal'
 import { CompleteTriageModal } from './CompleteTriageModal'
 import { atLeast } from '../lib/roles'
@@ -287,85 +289,100 @@ const canRunTriage =
         </header>
 
         {/* ===== Body ===== */}
+{/* ===== Body ===== */}
         <div style={{ flex: '1 1 auto', overflowY: 'auto', padding: '1rem 1.25rem', color: colors.darkestGray }}>
-          {/* --------- Triage --------- */}
+          <MatrixFieldProvider
+            matrix={requestMatrix}
+            role={user.role}
+            status={status}
+            isEditing={isEditing}
+          >
+         {/* --------- Triage --------- */}
           <Section title="Triage" defaultOpen>
-            {isEditing ? (
-              <>
-                <EditableField
-                  type="select" label="Category"
-                  value={liveCategory}
-                  options={categoryOptions}
-                  onChange={(code) => {
-                    setField('requestCategory', code)
-                    // Clear subcategory when category changes
-                    setField('requestSubcategory', null)
-                    // Bridge ignores route_name — clear it for cleanliness
-                    if ((code ?? '').toLowerCase() === 'bridge') setField('routeName', null)
-                  }}
-                />
-                <EditableField
-                  type="select" label="Subcategory"
-                  value={liveSubcategory}
-                  options={subcategoryOptions}
-                  disabled={!liveCategory}
-                  onChange={(code) => setField('requestSubcategory', code)}
-                />
-                <Field label="Title (auto)" value={liveTitle} wide />
-
-                <EditableField
-                  type="select" label="Urgency"
-                  value={v('urgency') as string | null}
-                  options={urgencyOptions}
-                  onChange={(val) => setField('urgency', val)}
-                />
-                {/*<EditableField
-                  type="number" label="Priority Score"
-                  value={v('priorityScore') as number | null}
-                  step={1} min={0}
-                  onChange={(val) => setField('priorityScore', val)}
-                />*/}
-                <EditableField
-                  type="date" label="Due Date"
-                  value={v('dueDate') as number | null}
-                  onChange={(val) => setField('dueDate', val)}
-                />
-                <Field label="Triaged Date" value={formatDate(v('triagedDate') as number | null)}
-                       helperText="Auto-stamped when status reaches Triaged or Ready for Assignment." />
-
-                <EditableField
-                  type="textarea" label="Description" wide
-                  value={v('requestDescription') as string | null}
-                  maxLength={4000} rows={3}
-                  onChange={(val) => setField('requestDescription', val)}
-                />
-                <EditableField
-                  type="textarea" label="Public Notes" wide
-                  value={v('publicNotes') as string | null}
-                  maxLength={4000} rows={2}
-                  onChange={(val) => setField('publicNotes', val)}
-                />
-                <EditableField
-                  type="textarea" label="Internal Notes" wide
-                  value={v('internalNotes') as string | null}
-                  maxLength={4000} rows={2}
-                  onChange={(val) => setField('internalNotes', val)}
-                />
-              </>
-            ) : (
-              <>
-                <Field label="Title"        value={request.requestTitle} />
-                <Field label="Category"     value={request.requestCategory} />
-                <Field label="Subcategory"  value={request.requestSubcategory} />
-                <Field label="Urgency"      value={request.urgency} />
-                {/*<Field label="Priority Score" value={request.priorityScore} />*/}
-                <Field label="Due Date"     value={formatDate(request.dueDate)} />
-                <Field label="Triaged Date" value={formatDate(request.triagedDate)} />
-                <Field label="Description"   value={request.requestDescription} wide />
-                <Field label="Public Notes"  value={request.publicNotes} wide />
-                <Field label="Internal Notes" value={request.internalNotes} wide />
-              </>
-            )}
+            <MatrixField
+              fieldKey="request_category"
+              type="select"
+              label="Category"
+              value={liveCategory}
+              options={categoryOptions}
+              onChange={(code) => {
+                setField('requestCategory', code)
+                setField('requestSubcategory', null)
+                if ((code ?? '').toLowerCase() === 'bridge') setField('routeName', null)
+              }}
+            />
+            <MatrixField
+              fieldKey="request_subcategory"
+              type="select"
+              label="Subcategory"
+              value={liveSubcategory}
+              options={subcategoryOptions}
+              disabled={!liveCategory}
+              onChange={(code) => setField('requestSubcategory', code)}
+            />
+            <MatrixField
+              fieldKey="request_title"
+              type="text"
+              label="Title (auto)"
+              value={isEditing ? liveTitle : (request.requestTitle ?? null)}
+              wide
+              onChange={() => { /* auto-derived; no manual edit */ }}
+            />
+            <MatrixField
+              fieldKey="urgency"
+              type="select"
+              label="Urgency"
+              value={v('urgency') as string | null}
+              options={urgencyOptions}
+              onChange={(val) => setField('urgency', val)}
+            />
+            <MatrixField
+              fieldKey="due_date"
+              type="date"
+              label="Due Date"
+              value={v('dueDate') as number | null}
+              onChange={(val) => setField('dueDate', val)}
+              formatValue={(v) => formatDate(v as number | null) ?? '—'}
+            />
+            <MatrixField
+              fieldKey="triaged_date"
+              type="date"
+              label="Triaged Date"
+              value={v('triagedDate') as number | null}
+              onChange={() => { /* auto-stamped */ }}
+              helperText="Auto-stamped on triage completion."
+              formatValue={(v) => formatDate(v as number | null) ?? '—'}
+            />
+            <MatrixField
+              fieldKey="request_description"
+              type="textarea"
+              label="Description"
+              wide
+              value={v('requestDescription') as string | null}
+              maxLength={4000}
+              rows={3}
+              onChange={(val) => setField('requestDescription', val)}
+            />
+            <MatrixField
+              fieldKey="public_notes"
+              type="textarea"
+              label="Public Notes"
+              wide
+              value={v('publicNotes') as string | null}
+              maxLength={4000}
+              rows={2}
+              onChange={(val) => setField('publicNotes', val)}
+            />
+            <MatrixField
+              fieldKey="internal_notes"
+              type="textarea"
+              label="Internal Notes"
+              wide
+              value={v('internalNotes') as string | null}
+              maxLength={4000}
+              rows={2}
+              onChange={(val) => setField('internalNotes', val)}
+            />
           </Section>
 
           {/* --------- Location --------- */}
@@ -553,8 +570,11 @@ const canRunTriage =
             <Field label="Deleted"           value={request.deleted} />
             <Field label="Deleted Date"      value={formatDate(request.deletedDate)} />
             <Field label="Deleted By"        value={request.deletedBy} />
+
           </Section>
+          </MatrixFieldProvider>
         </div>
+
 
         {/* ===== Footer ===== */}
         <footer
