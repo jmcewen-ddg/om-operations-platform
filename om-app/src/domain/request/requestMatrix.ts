@@ -144,18 +144,31 @@ export const requestMatrix: FieldEditMatrix = {
     ...sameAcross(TERMINAL_STATUSES, { default: 'R' }),
   },
 
-  // --- Requestor info (locked after create, all statuses) -------------------
-  // Backdated intake by T1+ is handled by the create form, not editField.
+  // --- Reporter info (locked after create, all statuses) --------------------
+  // Renamed from requestor_* to match the live schema. Backdated intake by
+  // T1+ is handled by the create form, not editField. BTS corrections happen
+  // at the SQL/Pro level, not in the app.
 
-  requestor_name: READ_ONLY_EVERYWHERE,
-  requestor_email: READ_ONLY_EVERYWHERE,
-  requestor_phone: READ_ONLY_EVERYWHERE,
-  requestor_organization: READ_ONLY_EVERYWHERE,
+  reporter_name: READ_ONLY_EVERYWHERE,
+  reporter_email: READ_ONLY_EVERYWHERE,
+  reporter_phone: READ_ONLY_EVERYWHERE,
+  reporter_organization: READ_ONLY_EVERYWHERE,
+  reporter_type: READ_ONLY_EVERYWHERE,
+
+  // Intake metadata — what channel this came through. Set by the intake
+  // form (Survey123, public form, etc.); never edited in the app.
+  intake_channel: READ_ONLY_EVERYWHERE,
+
+  // intake_type (Request / Cancellation domain). Visible R-only to all roles
+  // — only BTS edits via SQL or Pro.
+  intake_type: READ_ONLY_EVERYWHERE,
 
   // --- Location -------------------------------------------------------------
 
   // Shape: T1+ edits geometry directly via Maps SDK. T2+ can still edit after
-  // triage. Locked at terminal statuses.
+  // triage. Locked at terminal statuses. EVERY shape-derived field below is
+  // 'auto' because moving Shape causes them to recalculate (via S123 pulldata
+  // today, SQL trigger eventually).
   Shape: {
     ...sameAcross(['New', 'Draft'], { minRole: 'tier1Triager', default: 'R' }),
     ...sameAcross(['Triaged', 'In Design', 'Ready for Work Order', 'Assigned to Work Order'], {
@@ -166,43 +179,32 @@ export const requestMatrix: FieldEditMatrix = {
     ...sameAcross(TERMINAL_STATUSES, { default: 'R' }),
   },
 
-  // Derived from Shape — never directly edited.
+  // Shape-derived — never directly edited by humans in the app.
   original_latitude: AUTO_EVERYWHERE,
   original_longitude: AUTO_EVERYWHERE,
   corrected_latitude: AUTO_EVERYWHERE,
   corrected_longitude: AUTO_EVERYWHERE,
   location_corrected: AUTO_EVERYWHERE,
 
+  // All of these are derived from Shape via spatial lookup at intake (S123
+  // pulldata today) and will be recalculated by SQL trigger when Shape moves.
+  district: AUTO_EVERYWHERE,
+  parish: AUTO_EVERYWHERE,
+  municipality: AUTO_EVERYWHERE,
+  route_id: AUTO_EVERYWHERE,
+  route_name: AUTO_EVERYWHERE,
+  milepost: AUTO_EVERYWHERE,
+  road_lrsid: AUTO_EVERYWHERE,
+  bridge_recall: AUTO_EVERYWHERE,
+  nbi_structure_number: AUTO_EVERYWHERE,
+
+  // Free-text supplement — geometry can't capture "behind the white house
+  // with the blue mailbox". Stays human-editable T1+.
   location_description: {
     ...sameAcross(['New', 'Draft', 'Triaged', 'In Design', 'Ready for Work Order', 'Assigned to Work Order'], {
       minRole: 'tier1Triager',
       default: 'R',
     }),
-    ...sameAcross(TERMINAL_STATUSES, { default: 'R' }),
-  },
-
-  route_name: {
-    ...sameAcross(ACTIVE_STATUSES, { minRole: 'tier1Triager', default: 'R' }),
-    ...sameAcross(TERMINAL_STATUSES, { default: 'R' }),
-  },
-
-  route_id: {
-    ...sameAcross(ACTIVE_STATUSES, { minRole: 'tier1Triager', default: 'R' }),
-    ...sameAcross(TERMINAL_STATUSES, { default: 'R' }),
-  },
-
-  milepost: {
-    ...sameAcross(ACTIVE_STATUSES, { minRole: 'tier1Triager', default: 'R' }),
-    ...sameAcross(TERMINAL_STATUSES, { default: 'R' }),
-  },
-
-  parish: {
-    ...sameAcross(ACTIVE_STATUSES, { minRole: 'tier1Triager', default: 'R' }),
-    ...sameAcross(TERMINAL_STATUSES, { default: 'R' }),
-  },
-
-  municipality: {
-    ...sameAcross(ACTIVE_STATUSES, { minRole: 'tier1Triager', default: 'R' }),
     ...sameAcross(TERMINAL_STATUSES, { default: 'R' }),
   },
 
@@ -320,10 +322,12 @@ export const requestMatrix: FieldEditMatrix = {
 
   // --- Lifecycle dates (all auto-stamped by SQL trigger) --------------------
 
+  submitted_date: AUTO_EVERYWHERE,
   triaged_date: AUTO_EVERYWHERE,
   assigned_date: AUTO_EVERYWHERE,
   canceled_date: AUTO_EVERYWHERE,
   closed_date: AUTO_EVERYWHERE,
+  due_date: AUTO_EVERYWHERE,
 
   // --- Identity / sequence (all auto-stamped on insert) ---------------------
 
@@ -331,10 +335,13 @@ export const requestMatrix: FieldEditMatrix = {
   request_sequence_year: AUTO_EVERYWHERE,
   request_sequence_number: AUTO_EVERYWHERE,
 
-  // --- Source / submission (locked after create) ----------------------------
+  // --- Hidden / deprecated / future fields ----------------------------------
+  // Listed explicitly so a casual reader knows they're intentionally off.
 
-  source: READ_ONLY_EVERYWHERE,
-  submission_type: READ_ONLY_EVERYWHERE,
+  priority_score: sameAcross(ALL_STATUSES, { default: 'hidden' }),
+  assigned_to_email: sameAcross(ALL_STATUSES, { default: 'hidden' }),
+  assigned_to_name: sameAcross(ALL_STATUSES, { default: 'hidden' }),
+  assigned_team: sameAcross(ALL_STATUSES, { default: 'hidden' }),
 
   // --- Soft delete (programAdmin+ only, via admin action — not editField) ---
   // These are surfaced R-only in detail views for audit; the actual flip is
@@ -343,20 +350,6 @@ export const requestMatrix: FieldEditMatrix = {
   deleted: READ_ONLY_EVERYWHERE,
   deleted_date: AUTO_EVERYWHERE,
   deleted_by: AUTO_EVERYWHERE,
-
-  // --- Hidden / deprecated fields -------------------------------------------
-  // Listed here explicitly so a casual reader can see they're intentionally
-  // hidden, not just forgotten. Lookup falls through to 'hidden' for any
-  // unlisted field anyway, but this is documentation-by-code.
-
-  district: sameAcross(ALL_STATUSES, { default: 'hidden' }),
-  priority_score: sameAcross(ALL_STATUSES, { default: 'hidden' }),
-  assigned_to_email: sameAcross(ALL_STATUSES, { default: 'hidden' }),
-  assigned_to_name: sameAcross(ALL_STATUSES, { default: 'hidden' }),
-  assigned_team: sameAcross(ALL_STATUSES, { default: 'hidden' }),
-  due_date: sameAcross(ALL_STATUSES, { default: 'hidden' }),
-  submitted_date: sameAcross(ALL_STATUSES, { default: 'hidden' }),
-  intake_type: sameAcross(ALL_STATUSES, { default: 'hidden' }),
 
   // System-managed (always hidden from edit UI; editor tracking elsewhere).
 
