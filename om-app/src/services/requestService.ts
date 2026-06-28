@@ -822,6 +822,34 @@ export async function cancelRequest(
   await updateRequest(objectId, patch)
   return patch
 }
+/**
+ * Complete triage on a request. Single applyEdits write that sets:
+ *   - requires_design (Yes/No from the modal)
+ *   - status (derived: Yes → "In Design", No → "Ready for Work Order")
+ *   - triaged_date (now)
+ *
+ * Returns the patch so the caller can merge it into local state.
+ *
+ * TODO (future): if/when SDE archive needs to show a "Triaged" step, either
+ * split this into two sequential writes (Triaged → final), or add a SQL
+ * trigger that inserts a synthetic Triaged row on the Draft|New → final jump.
+ */
+export async function completeTriage(
+  objectId: number,
+  requiresDesign: 'Yes' | 'No',
+): Promise<Partial<OmRequest>> {
+  const now = Date.now()
+  const nextStatus = requiresDesign === 'Yes' ? 'In Design' : 'Ready for Work Order'
+
+  const patch: Partial<OmRequest> = {
+    requiresDesign,
+    status: nextStatus,
+    triagedDate: now,
+  }
+
+  await updateRequest(objectId, patch)
+  return patch
+}
 
 /**
  * Move a request out of triage into either a Maintenance Initiative or a

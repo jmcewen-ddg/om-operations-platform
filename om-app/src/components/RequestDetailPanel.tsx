@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { updateRequest, cancelRequest, type OmRequest } from '../services/requestService'
+import { updateRequest, cancelRequest, completeTriage, type OmRequest } from '../services/requestService'
 import { colors } from '../theme'
 import { ConfirmModal } from './ConfirmModal'
 import { loadDomains, type DomainMap } from '../services/domainService'
@@ -14,6 +14,7 @@ import {
 import {
   getAllowedTriageTransitions,
   canTriageEditStatus,
+  canCompleteTriage,
 } from '../utils/requestStatusHelpers'
 import { EditableField } from './EditableField'
 import { useUser } from '../lib/userContext'
@@ -21,6 +22,7 @@ import { can, canEditAnyField } from '../lib/permissions'
 import { type RequestStatus } from '../domain/request/requestStatus'
 import { requestMatrix } from '../domain/request/requestMatrix'
 import { CancelRequestModal } from './CancelRequestModal'
+import { CompleteTriageModal } from './CompleteTriageModal'
 import { atLeast } from '../lib/roles'
 
 type Props = {
@@ -45,7 +47,8 @@ export function RequestDetailPanel({ request, onClose, onRequestUpdated }: Props
   const [isDiscardConfirmOpen, setIsDiscardConfirmOpen] = useState(false)
   const [isMoveModalOpen, setIsMoveModalOpen] = useState(false)
   const hasUnsavedChanges = isEditing && Object.keys(draft).length > 0
-  const [cancelOpen, setCancelOpen] = useState(false)
+ const [cancelOpen, setCancelOpen] = useState(false)
+  const [triageOpen, setTriageOpen] = useState(false)
 
 
   // Helper: get the live value for any field (draft override → saved value).
@@ -232,6 +235,10 @@ const canCancel =
   atLeast(user.role, 'tier2Triager') &&
   request.status !== 'Canceled' &&
   request.status !== 'Closed'
+
+const canRunTriage =
+  atLeast(user.role, 'tier1Triager') &&
+  canCompleteTriage(request.status)
 
   return (
     <>
@@ -582,6 +589,24 @@ const canCancel =
     <button type="button" onClick={() => setIsEditing(true)} style={footerPrimaryBtn(false)}>Edit</button>
     )}
 
+{canRunTriage && (
+  <button
+    type="button"
+    onClick={() => setTriageOpen(true)}
+    style={{
+      padding: '8px 16px',
+      background: colors.green,
+      color: colors.darkestGray,
+      border: 'none',
+      borderRadius: 4,
+      cursor: 'pointer',
+      fontWeight: 600,
+    }}
+    title="Mark this request as triaged and route it forward"
+  >
+    Complete Triage
+  </button>
+)}
 
     {canCancel && (
   <button
@@ -686,6 +711,18 @@ const canCancel =
   requestId={request.requestId ?? '(no ID)'}
 />
 
+<CompleteTriageModal
+  isOpen={triageOpen}
+  onClose={() => setTriageOpen(false)}
+  onConfirm={async (requiresDesign) => {
+    const patch = await completeTriage(request.objectId, requiresDesign)
+    const updated: OmRequest = { ...request, ...patch }
+    onRequestUpdated?.(updated)
+    setTriageOpen(false)
+  }}
+  requestId={request.requestId ?? '(no ID)'}
+  initialRequiresDesign={request.requiresDesign ?? null}
+/>
     </>
   )
 }
