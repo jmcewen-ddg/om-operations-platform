@@ -20,6 +20,8 @@ import { useUser } from '../lib/userContext'
 import { can, canEditAnyField } from '../lib/permissions'
 import { type RequestStatus } from '../domain/request/requestStatus'
 import { requestMatrix } from '../domain/request/requestMatrix'
+import { CancelRequestModal } from './CancelRequestModal'
+import { atLeast } from '../lib/roles'
 
 type Props = {
   request: OmRequest | null
@@ -42,8 +44,9 @@ export function RequestDetailPanel({ request, onClose, onRequestUpdated }: Props
   const [saveError, setSaveError] = useState<string | null>(null)
   const [isDiscardConfirmOpen, setIsDiscardConfirmOpen] = useState(false)
   const [isMoveModalOpen, setIsMoveModalOpen] = useState(false)
-
   const hasUnsavedChanges = isEditing && Object.keys(draft).length > 0
+  const [cancelOpen, setCancelOpen] = useState(false)
+
 
   // Helper: get the live value for any field (draft override → saved value).
   function v<K extends keyof OmRequest>(key: K): OmRequest[K] | null {
@@ -217,6 +220,18 @@ const canMoveToProgram = userCanMoveToProgram && requestIsMoveable
 // here. Terminal statuses naturally lock out edit because every field becomes
 // R-only.
 const canEditRequest = canEditAnyField(user, 'request', requestMatrix, status)
+
+console.log('[canCancel debug]', {
+  role: user.role,
+  status: request.status,
+  statusType: typeof request.status,
+  statusJSON: JSON.stringify(request.status),
+})
+
+const canCancel =
+  atLeast(user.role, 'tier2Triager') &&
+  request.status !== 'Canceled' &&
+  request.status !== 'Closed'
 
   return (
     <>
@@ -566,6 +581,25 @@ const canEditRequest = canEditAnyField(user, 'request', requestMatrix, status)
     {canEditRequest && (
     <button type="button" onClick={() => setIsEditing(true)} style={footerPrimaryBtn(false)}>Edit</button>
     )}
+
+
+    {canCancel && (
+  <button
+    type="button"
+    onClick={() => setCancelOpen(true)}
+    style={{
+      padding: '8px 16px',
+      background: '#FFFFFF',
+      color: '#FFAC0F',
+      border: '1px solid #FFAC0F',
+      borderRadius: 4,
+      cursor: 'pointer',
+      fontWeight: 600,
+    }}
+  >
+    Cancel Request
+  </button>
+)}
   </>
 ) : (
 
@@ -639,6 +673,17 @@ const canEditRequest = canEditAnyField(user, 'request', requestMatrix, status)
     setIsMoveModalOpen(false)
   }}
 />
+
+<CancelRequestModal
+  isOpen={cancelOpen}
+  onClose={() => setCancelOpen(false)}
+  onConfirm={(reason) => {
+    console.log('TODO step 2: submit cancel', { id: request.requestId, reason })
+    setCancelOpen(false)
+  }}
+  requestId={request.requestId ?? '(no ID)'}
+/>
+
     </>
   )
 }
