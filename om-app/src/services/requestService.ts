@@ -796,6 +796,33 @@ export async function updateRequest(
     updates: [{ attributes: restAttributes }],
   })
 }
+
+/**
+ * Cancel a request: sets request_status to "Canceled" and writes the
+ * cancellation reason. Used by the Cancel Request modal in
+ * RequestDetailPanel. Returns the patch that was applied so the caller
+ * can merge it into local state.
+ */
+export async function cancelRequest(
+  objectId: number,
+  reason: string,
+): Promise<Partial<OmRequest>> {
+  const trimmed = reason.trim()
+  if (!trimmed) {
+    throw new Error('Cancellation reason is required.')
+  }
+
+  const now = Date.now()
+  const patch: Partial<OmRequest> = {
+    status: 'Canceled',
+    cancellationReason: trimmed,
+    canceledDate: now,
+  }
+
+  await updateRequest(objectId, patch)
+  return patch
+}
+
 /**
  * Move a request out of triage into either a Maintenance Initiative or a
  * Capital Project. This is a terminal lifecycle event for the request:

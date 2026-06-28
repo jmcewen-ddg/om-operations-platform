@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { updateRequest, type OmRequest } from '../services/requestService'
+import { updateRequest, cancelRequest, type OmRequest } from '../services/requestService'
 import { colors } from '../theme'
 import { ConfirmModal } from './ConfirmModal'
 import { loadDomains, type DomainMap } from '../services/domainService'
@@ -677,8 +677,10 @@ const canCancel =
 <CancelRequestModal
   isOpen={cancelOpen}
   onClose={() => setCancelOpen(false)}
-  onConfirm={(reason) => {
-    console.log('TODO step 2: submit cancel', { id: request.requestId, reason })
+  onConfirm={async (reason) => {
+    const patch = await cancelRequest(request.objectId, reason)
+    const updated: OmRequest = { ...request, ...patch }
+    onRequestUpdated?.(updated)
     setCancelOpen(false)
   }}
   requestId={request.requestId ?? '(no ID)'}
