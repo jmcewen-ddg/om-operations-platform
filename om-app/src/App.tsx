@@ -370,7 +370,7 @@ return (
   eligible for WO assignment, so the buttons are meaningless there.
 */}
 {activeRequestTab === SELECTABLE_TAB && (
-  <div style={{ textAlign: 'center', marginTop: '0.75rem' }}>
+  <div style={{ display: 'flex', gap: '40px', justifyContent: 'center', marginTop: '0.75rem' }}>
     <button
       onClick={handleAssign}
       disabled={!canAssign}
@@ -408,11 +408,12 @@ return (
   </div>
 )}
 
-        {noAssignableWorkOrders && (
-          <div style={styles.warningText}>
-            No assignable work orders exist. Create a Work Order first, then assign requests to it.
-          </div>
-        )}
+{activeRequestTab === SELECTABLE_TAB && noAssignableWorkOrders && (
+  <div style={styles.warningText}>
+    No assignable work orders exist. Create a Work Order first, then assign requests to it.
+  </div>
+)}
+
       </section>
       </>
   )}
