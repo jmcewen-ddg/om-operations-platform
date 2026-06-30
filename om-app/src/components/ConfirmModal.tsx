@@ -23,7 +23,7 @@ export function ConfirmModal({
   title,
   message,
   confirmLabel = 'Confirm',
-  cancelLabel = 'Cancel',
+  cancelLabel = 'Return to Editing',
   confirmVariant = 'primary',
   isWorking = false,
   onConfirm,

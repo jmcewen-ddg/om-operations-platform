@@ -100,14 +100,13 @@ export const requestMatrix: FieldEditMatrix = {
     ...sameAcross(TERMINAL_STATUSES, { default: 'R' }),
   },
 
-  request_description: {
-    ...sameAcross(['New', 'Draft', 'Triaged', 'In Design', 'Ready for Work Order'], {
-      minRole: 'tier1Triager',
-      default: 'R',
-    }),
-    'Assigned to Work Order': { minRole: 'tier2Triager', default: 'R' },
-    ...sameAcross(TERMINAL_STATUSES, { default: 'R' }),
-  },
+// Original reporter submission — never editable in the app, never
+// visible to the public role (it may contain PII or sensitive context
+// the reporter didn't intend to publish). System-set at intake by S123.
+request_description: sameAcross(ALL_STATUSES, {
+  roleOverrides: { public: 'hidden' },
+  default: 'R',
+}),
 
   // --- Urgency --------------------------------------------------------------
 
@@ -144,16 +143,15 @@ export const requestMatrix: FieldEditMatrix = {
     ...sameAcross(TERMINAL_STATUSES, { default: 'R' }),
   },
 
-  // --- Reporter info (locked after create, all statuses) --------------------
-  // Renamed from requestor_* to match the live schema. Backdated intake by
-  // T1+ is handled by the create form, not editField. BTS corrections happen
-  // at the SQL/Pro level, not in the app.
+// --- Reporter info (system-set at intake, never edited in app) -----------
+  // Provided at point of entry (Survey123 / public form). Locked everywhere,
+  // for everyone. BTS corrections happen at the SQL/Pro level, not in the app.
 
-  reporter_name: READ_ONLY_EVERYWHERE,
-  reporter_email: READ_ONLY_EVERYWHERE,
-  reporter_phone: READ_ONLY_EVERYWHERE,
-  reporter_organization: READ_ONLY_EVERYWHERE,
-  reporter_type: READ_ONLY_EVERYWHERE,
+  reporter_name: AUTO_EVERYWHERE,
+  reporter_email: AUTO_EVERYWHERE,
+  reporter_phone: AUTO_EVERYWHERE,
+  reporter_organization: AUTO_EVERYWHERE,
+  reporter_type: AUTO_EVERYWHERE,
 
   // Intake metadata — what channel this came through. Set by the intake
   // form (Survey123, public form, etc.); never edited in the app.
@@ -279,46 +277,13 @@ export const requestMatrix: FieldEditMatrix = {
   },
 
   // --- Notes ----------------------------------------------------------------
-
-  // public_notes: contractor sees R when request is on their WO. Visibility
-  // to anonymous submitter is handled by the future status-check page, not here.
-  public_notes: {
-    ...sameAcross(['New', 'Draft', 'Triaged', 'In Design', 'Ready for Work Order'], {
-      minRole: 'tier1Triager',
-      default: 'R',
-    }),
-    'Assigned to Work Order': {
-      minRole: 'tier1Triager',
-      roleOverrides: { contractor: 'R' },
-      default: 'R',
-    },
-    Canceled: { minRole: 'tier2Triager', default: 'R' },
-    Closed: { minRole: 'tier2Triager', default: 'R' },
-  },
-
-  // internal_notes: never visible to contractor or public.
-  internal_notes: {
-    ...sameAcross(['New', 'Draft', 'Triaged', 'In Design', 'Ready for Work Order'], {
-      minRole: 'tier1Triager',
-      roleOverrides: { contractor: 'hidden', public: 'hidden' },
-      default: 'R',
-    }),
-    'Assigned to Work Order': {
-      minRole: 'tier1Triager',
-      roleOverrides: { contractor: 'hidden', public: 'hidden' },
-      default: 'R',
-    },
-    Canceled: {
-      minRole: 'tier2Triager',
-      roleOverrides: { contractor: 'hidden', public: 'hidden' },
-      default: 'R',
-    },
-    Closed: {
-      minRole: 'tier2Triager',
-      roleOverrides: { contractor: 'hidden', public: 'hidden' },
-      default: 'R',
-    },
-  },
+// DEPRECATED — single-blob notes on the row. Replaced by the related
+// om_request_note table (rendered by RequestNotesSection) which supports
+// per-note type + visibility. Hidden everywhere in the app; fields remain
+// in the schema for now in case legacy data needs to be inspected. Remove
+// from schema after a deprecation window.
+public_notes: sameAcross(ALL_STATUSES, { default: 'hidden' }),
+internal_notes: sameAcross(ALL_STATUSES, { default: 'hidden' }),
 
   // --- Lifecycle dates (all auto-stamped by SQL trigger) --------------------
 

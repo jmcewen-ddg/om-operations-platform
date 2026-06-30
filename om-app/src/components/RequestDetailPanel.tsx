@@ -47,6 +47,11 @@ export function RequestDetailPanel({ request, onClose, onRequestUpdated }: Props
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [isDiscardConfirmOpen, setIsDiscardConfirmOpen] = useState(false)
+// Why intent matters: the discard modal can be triggered either by clicking
+// "Close Panel" (where the user wants to close) OR by clicking "Cancel" while
+// editing (where the user just wants to back out of edit mode, NOT close).
+// Track which one opened it so confirmDiscard does the right thing.
+const [discardIntent, setDiscardIntent] = useState<'close' | 'cancelEdit' | null>(null)
   const [isMoveModalOpen, setIsMoveModalOpen] = useState(false)
   const hasUnsavedChanges = isEditing && Object.keys(draft).length > 0
  const [cancelOpen, setCancelOpen] = useState(false)
@@ -139,27 +144,37 @@ export function RequestDetailPanel({ request, onClose, onRequestUpdated }: Props
     }
   }
 
-  // ---- Close handling ----
-  function attemptClose() {
-    if (hasUnsavedChanges) setIsDiscardConfirmOpen(true)
-    else onClose()
-  }
-
-  function confirmDiscard() {
-    setIsDiscardConfirmOpen(false)
-    setDraft({})
-    setIsEditing(false)
+// ---- Close handling ----
+function attemptClose() {
+  if (hasUnsavedChanges) {
+    setDiscardIntent('close')
+    setIsDiscardConfirmOpen(true)
+  } else {
     onClose()
   }
+}
 
-  function cancelEdit() {
-    if (hasUnsavedChanges) {
-      setIsDiscardConfirmOpen(true)
-    } else {
-      setDraft({})
-      setIsEditing(false)
-    }
+function confirmDiscard() {
+  // Always discard the draft + exit edit mode.
+  const intent = discardIntent
+  setIsDiscardConfirmOpen(false)
+  setDiscardIntent(null)
+  setDraft({})
+  setIsEditing(false)
+  // Only close the whole panel if the user got here via Close Panel.
+  // If they got here via Cancel (edit mode), stay on the request.
+  if (intent === 'close') onClose()
+}
+
+function cancelEdit() {
+  if (hasUnsavedChanges) {
+    setDiscardIntent('cancelEdit')
+    setIsDiscardConfirmOpen(true)
+  } else {
+    setDraft({})
+    setIsEditing(false)
   }
+}
 
   // ---- Load coded-value domains once ----
   useEffect(() => {
@@ -260,33 +275,111 @@ const canRunTriage =
           display: 'flex', flexDirection: 'column', zIndex: 950,
         }}
       >
-        {/* ===== Header ===== */}
-        <header
+{/* ===== Header =====
+    Compact context banner. All text strictly left-aligned and tight.
+    Lines 2/3/4 each join non-null pieces with " · " so missing values
+    degrade cleanly (no dangling separators). */}
+<header
+  style={{
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'flex-start',
+    padding: '0.25rem 0.75rem',
+    background: colors.blue,
+    color: colors.white,
+    flex: '0 0 auto',
+    gap: '0.5rem',
+    lineHeight: 1.5,
+  }}
+>
+  <div
+    style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'flex-start',
+      textAlign: 'left',
+      minWidth: 0,
+      flex: '1 1 auto',
+    }}
+  >
+    {/* Line 1: kicker label + ID */}
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.4rem' }}>
+      <span style={{ fontSize: '0.95em', opacity: 1.0, letterSpacing: '0.05em' }}>
+        REQUEST
+      </span>
+      <span style={{ fontSize: '0.95em', fontWeight: 700 }}>
+        {request.requestId ?? '(no ID yet)'}
+      </span>
+    </div>
+
+    {/* Line 2: urgency · category */}
+    {(() => {
+      const parts = [request.urgency, request.requestCategory].filter(Boolean)
+      if (!parts.length) return null
+      return (
+        <div
           style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '1rem 1.25rem', background: colors.blue, color: colors.white,
-            flex: '0 0 auto',
+            textAlign: 'left',
+            fontSize: '0.9em', fontWeight: 600, opacity: 0.95,
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            width: '100%',
           }}
+          title={parts.join(' · ')}
         >
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <div style={{ fontSize: '0.8em', opacity: 0.85 }}>Request</div>
-            <div style={{ fontSize: '1.1em', fontWeight: 700 }}>
-              {request.requestId ?? '(no ID yet)'}
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={attemptClose}
-            aria-label="Close panel"
-            style={{
-              background: 'transparent', color: colors.white,
-              border: `1px solid ${colors.white}55`, borderRadius: 4,
-              width: 32, height: 32, fontSize: '1.2em', cursor: 'pointer', lineHeight: 1,
-            }}
-          >
-            ✕
-          </button>
-        </header>
+          {parts.join(' · ')}
+        </div>
+      )
+    })()}
+
+    {/* Line 3: status · assignment */}
+    {(() => {
+      const parts = [request.status, request.assignmentStatus].filter(Boolean)
+      if (!parts.length) return null
+      return (
+        <div
+          style={{
+            textAlign: 'left',
+            fontSize: '0.9em', fontWeight: 600, opacity: 0.95,
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            width: '100%',
+          }}
+          title={parts.join(' · ')}
+        >
+          {parts.join(' · ')}
+        </div>
+      )
+    })()}
+
+    {/* Line 4: subcategory */}
+    {request.requestSubcategory && (
+      <div
+        style={{
+          textAlign: 'left',
+          fontSize: '0.85em', fontWeight: 600, opacity: 0.9,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          width: '100%',
+        }}
+        title={request.requestSubcategory}
+      >
+        {request.requestSubcategory}
+      </div>
+    )}
+  </div>
+
+  <button
+    type="button"
+    onClick={attemptClose}
+    aria-label="Close panel"
+    style={{
+      background: 'transparent', color: colors.white,
+      border: `1px solid ${colors.white}55`, borderRadius: 4,
+      width: 22, height: 22, fontSize: '0.85em', cursor: 'pointer',
+      lineHeight: 1, flex: '0 0 auto',
+    }}
+  >
+    ✕
+  </button>
+</header>
 
         {/* ===== Body ===== */}
 {/* ===== Body ===== */}
@@ -297,93 +390,86 @@ const canRunTriage =
             status={status}
             isEditing={isEditing}
           >
-         {/* --------- Triage --------- */}
-          <Section title="Triage" defaultOpen>
-            <MatrixField
-              fieldKey="request_category"
-              type="select"
-              label="Category"
-              value={liveCategory}
-              options={categoryOptions}
-              onChange={(code) => {
-                setField('requestCategory', code)
-                setField('requestSubcategory', null)
-                if ((code ?? '').toLowerCase() === 'bridge') setField('routeName', null)
-              }}
-            />
-            <MatrixField
-              fieldKey="request_subcategory"
-              type="select"
-              label="Subcategory"
-              value={liveSubcategory}
-              options={subcategoryOptions}
-              disabled={!liveCategory}
-              onChange={(code) => setField('requestSubcategory', code)}
-            />
-            <MatrixField
-              fieldKey="request_title"
-              type="text"
-              label="Title (auto)"
-              value={isEditing ? liveTitle : (request.requestTitle ?? null)}
-              wide
-              onChange={() => { /* auto-derived; no manual edit */ }}
-            />
-            <MatrixField
-              fieldKey="urgency"
-              type="select"
-              label="Urgency"
-              value={v('urgency') as string | null}
-              options={urgencyOptions}
-              onChange={(val) => setField('urgency', val)}
-            />
-            <MatrixField
-              fieldKey="due_date"
-              type="date"
-              label="Due Date"
-              value={v('dueDate') as number | null}
-              onChange={(val) => setField('dueDate', val)}
-              formatValue={(v) => formatDate(v as number | null) ?? '—'}
-            />
-            <MatrixField
-              fieldKey="triaged_date"
-              type="date"
-              label="Triaged Date"
-              value={v('triagedDate') as number | null}
-              onChange={() => { /* auto-stamped */ }}
-              helperText="Auto-stamped on triage completion."
-              formatValue={(v) => formatDate(v as number | null) ?? '—'}
-            />
-            <MatrixField
-              fieldKey="request_description"
-              type="textarea"
-              label="Description"
-              wide
-              value={v('requestDescription') as string | null}
-              maxLength={4000}
-              rows={3}
-              onChange={(val) => setField('requestDescription', val)}
-            />
-            <MatrixField
-              fieldKey="public_notes"
-              type="textarea"
-              label="Public Notes"
-              wide
-              value={v('publicNotes') as string | null}
-              maxLength={4000}
-              rows={2}
-              onChange={(val) => setField('publicNotes', val)}
-            />
-            <MatrixField
-              fieldKey="internal_notes"
-              type="textarea"
-              label="Internal Notes"
-              wide
-              value={v('internalNotes') as string | null}
-              maxLength={4000}
-              rows={2}
-              onChange={(val) => setField('internalNotes', val)}
-            />
-          </Section>
+{/* --------- Triage ---------
+    Order: Title → Category · Subcategory → Urgency → Original Request
+    Description. Category/Subcategory are cascading: clearing Category
+    clears Subcategory; selecting Bridge clears Route Name (Location
+    section). Description is read-only and not surfaced to the public
+    role — see request_description in requestMatrix.ts.
+
+    Public Notes and Internal Notes have been retired in favor of the
+    related om_request_note table, rendered by RequestNotesSection
+    immediately below this section.
+*/}
+<Section title="Triage" defaultOpen>
+  <MatrixField
+    fieldKey="request_title"
+    type="text"
+    label="Title"
+    wide
+    value={isEditing ? liveTitle : (request.requestTitle ?? null)}
+    onChange={(val) => setField('requestTitle', val)}
+  />
+
+  {/* Three-up row: Category · Subcategory · Urgency.
+    Spans both columns of the parent Section grid, then sub-divides into
+    its own 3-column grid so the trio aligns horizontally. If any of the
+    three is hidden by the matrix (e.g., urgency hidden from public),
+    that cell renders empty — the other two stay in place. */}
+<div
+  style={{
+    gridColumn: '1 / -1',
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr 1fr',
+    gap: '0.3rem 1rem',
+    alignItems: 'start',
+  }}
+>
+    <MatrixField
+    fieldKey="urgency"
+    type="select"
+    label="Urgency"
+    value={v('urgency') as string | null}
+    options={urgencyOptions}
+    onChange={(val) => setField('urgency', val)}
+  />
+  <MatrixField
+    fieldKey="request_category"
+    type="select"
+    label="Category"
+    value={liveCategory}
+    options={categoryOptions}
+    onChange={(code) => {
+      setField('requestCategory', code)
+      // Subcategory is dependent on Category; clear it when Category changes.
+      setField('requestSubcategory', null)
+      // Bridge category doesn't use Route Name (Location section).
+      if ((code ?? '').toLowerCase() === 'bridge') setField('routeName', null)
+    }}
+  />
+  <MatrixField
+    fieldKey="request_subcategory"
+    type="select"
+    label="Subcategory"
+    value={liveSubcategory}
+    options={subcategoryOptions}
+    disabled={!liveCategory}
+    onChange={(code) => setField('requestSubcategory', code)}
+  />
+</div>
+  <MatrixField
+    fieldKey="request_description"
+    type="textarea"
+    label="Original Request Description"
+    wide
+    value={request.requestDescription ?? null}
+    rows={3}
+    onChange={() => { /* read-only: matrix never grants RW */ }}
+  />
+</Section>
+
+{/* --------- Notes (related table) --------- */}
+<RequestNotesSection requestGlobalId={request.globalId} defaultOpen />
 
           {/* --------- Location --------- */}
           <Section title="Location" defaultOpen={false}>
@@ -468,7 +554,7 @@ const canRunTriage =
           </Section>
 
           {/* --------- Requestor --------- */}
-          <Section title="Requestor" defaultOpen={false}>
+          <Section title="Reporter Information" defaultOpen={false}>
             {isEditing ? (
               <>
                 <EditableField type="text" label="Name" maxLength={255}
@@ -519,44 +605,103 @@ const canRunTriage =
             <Field label="Assignment Notes"   value={request.assignmentNotes} wide />
           </Section>
 
-          {/* --------- Status & Lifecycle --------- */}
-          <Section title="Status & Lifecycle" defaultOpen={false}>
-            {isEditing ? (
-              <>
-                <EditableField
-                  type="select" label="Status"
-                  value={v('status') as string | null}
-                  options={statusOptions}
-                  disabled={!canTriageEditStatus(request.status)}
-                  helperText={
-                    canTriageEditStatus(request.status)
-                      ? 'Triage can move to Triaged or Ready for Work Order.'
-                      : 'Status is past triage and is driven by other workflows.'
-                  }
-                  onChange={(val) => setField('status', val)}
-                />
-                <Field label="Submitted" value={formatDate(request.submittedDate)} />
-                <Field label="Assigned"  value={formatDate(request.assignedDate)} />
-                <Field label="Canceled"  value={formatDate(request.canceledDate)} />
-                <Field label="Closed"    value={formatDate(request.closedDate)} />
-                <Field label="Cancellation Reason" value={request.cancellationReason} wide />
-                <Field label="Closed Reason"       value={request.closedReason} wide />
-              </>
-            ) : (
-              <>
-                <Field label="Status"     value={request.status} />
-                <Field label="Submitted"  value={formatDate(request.submittedDate)} />
-                <Field label="Assigned"   value={formatDate(request.assignedDate)} />
-                <Field label="Canceled"   value={formatDate(request.canceledDate)} />
-                <Field label="Closed"     value={formatDate(request.closedDate)} />
-                <Field label="Cancellation Reason" value={request.cancellationReason} wide />
-                <Field label="Closed Reason"       value={request.closedReason} wide />
-              </>
-            )}
-          </Section>
+{/* --------- Status & Lifecycle --------- */}
+<Section title="Status & Lifecycle" defaultOpen={false}>
+  {/*
+    Status itself is workflow-driven, not matrix-driven. Triage uses
+    canTriageEditStatus() to gate the dropdown; other transitions happen
+    via actions (Cancel, Complete Triage, etc.). So Status stays as a
+    manual EditableField / Field outside the matrix.
+  */}
+  {isEditing ? (
+    <EditableField
+      type="select" label="Status"
+      value={v('status') as string | null}
+      options={statusOptions}
+      disabled={!canTriageEditStatus(request.status)}
+      helperText={
+        canTriageEditStatus(request.status)
+          ? 'Triage can move to Triaged or Ready for Work Order.'
+          : 'Status is past triage and is driven by other workflows.'
+      }
+      onChange={(val) => setField('status', val)}
+    />
+  ) : (
+    <Field label="Status" value={request.status} />
+  )}
 
-          {/* --------- Notes --------- */}
-          <RequestNotesSection requestGlobalId={request.globalId} defaultOpen={false} />
+  {/*
+    Everything below is matrix-driven. All dates are AUTO_EVERYWHERE,
+    so onChange is a no-op (never called). Reasons are conditionally
+    visible per status (hidden until Canceled/Closed) — MatrixField
+    handles that automatically.
+  */}
+  <MatrixField
+    type="date"
+    fieldKey="submitted_date"
+    label="Submitted"
+    value={request.submittedDate ?? null}
+    formatValue={(v) => formatDate(v as number | null)}
+    onChange={() => {}}
+  />
+  <MatrixField
+    type="date"
+    fieldKey="triaged_date"
+    label="Triaged"
+    value={request.triagedDate ?? null}
+    formatValue={(v) => formatDate(v as number | null)}
+    onChange={() => {}}
+  />
+  <MatrixField
+    type="date"
+    fieldKey="assigned_date"
+    label="Assigned"
+    value={request.assignedDate ?? null}
+    formatValue={(v) => formatDate(v as number | null)}
+    onChange={() => {}}
+  />
+  <MatrixField
+    type="date"
+    fieldKey="due_date"
+    label="Due"
+    value={request.dueDate ?? null}
+    formatValue={(v) => formatDate(v as number | null)}
+    helperText="Set when assigned WO is dispatched (TBD)."
+    onChange={() => {}}
+  />
+  <MatrixField
+    type="date"
+    fieldKey="canceled_date"
+    label="Canceled"
+    value={request.canceledDate ?? null}
+    formatValue={(v) => formatDate(v as number | null)}
+    onChange={() => {}}
+  />
+  <MatrixField
+    type="date"
+    fieldKey="closed_date"
+    label="Closed"
+    value={request.closedDate ?? null}
+    formatValue={(v) => formatDate(v as number | null)}
+    onChange={() => {}}
+  />
+  <MatrixField
+    type="textarea"
+    fieldKey="cancellation_reason"
+    label="Cancellation Reason"
+    value={request.cancellationReason ?? null}
+    wide
+    onChange={() => {}}
+  />
+  <MatrixField
+    type="textarea"
+    fieldKey="closed_reason"
+    label="Closed Reason"
+    value={request.closedReason ?? null}
+    wide
+    onChange={() => {}}
+  />
+</Section>
 
           {/* --------- System (read-only) --------- */}
           <Section title="System" defaultOpen={false}>
@@ -577,112 +722,149 @@ const canRunTriage =
 
 
         {/* ===== Footer ===== */}
-        <footer
-          style={{
-            flex: '0 0 auto', padding: '0.75rem 1.25rem',
-            borderTop: `1px solid ${colors.lightGray}`, background: colors.lightestGray,
-            display: 'flex', justifyContent: 'flex-end', gap: 8,
-          }}
-        >
-
-{!isEditing ? (
-  <>
-    <button type="button" onClick={attemptClose} style={footerSecondaryBtn}>Close</button>
-
-    {canMoveToProgram && (
+        
+<footer
+  style={{
+    flex: '0 0 auto', padding: '0.75rem 1.25rem',
+    borderTop: `1px solid ${colors.lightGray}`, background: colors.lightestGray,
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  }}
+>
+  {!isEditing ? (
+    <>
+      {/* Left: panel-level action. "Close Panel" makes it unambiguous
+          that this dismisses the side panel — NOT the request itself. */}
       <button
         type="button"
-        onClick={() => setIsMoveModalOpen(true)}
-        style={{
-          background: colors.orange,
-          color: colors.darkestGray,
-          border: 'none', borderRadius: 4,
-          padding: '0.4rem 0.9rem',
-          cursor: 'pointer', fontWeight: 600,
-        }}
-        title="Move this request to a Maintenance Initiative or Capital Project"
+        onClick={attemptClose}
+        style={footerSecondaryBtn}
+        title="Close this side panel (does not change the request)"
       >
-        Move to Program
+        Close Panel
       </button>
-    )}
-    {canEditRequest && (
-    <button type="button" onClick={() => setIsEditing(true)} style={footerPrimaryBtn(false)}>Edit</button>
-    )}
 
-{canRunTriage && (
-  <button
-    type="button"
-    onClick={() => setTriageOpen(true)}
-    style={{
-      padding: '8px 16px',
-      background: colors.green,
-      color: colors.darkestGray,
-      border: 'none',
-      borderRadius: 4,
-      cursor: 'pointer',
-      fontWeight: 600,
-    }}
-    title="Mark this request as triaged and route it forward"
-  >
-    Complete Triage
-  </button>
-)}
+      {/* Right: request-level actions, grouped together. */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        {canMoveToProgram && (
+          <button
+            type="button"
+            onClick={() => setIsMoveModalOpen(true)}
+            style={{
+              background: colors.orange,
+              color: colors.darkestGray,
+              border: 'none', borderRadius: 4,
+              padding: '0.4rem 0.9rem',
+              cursor: 'pointer', fontWeight: 600,
+            }}
+            title="Move this request to a Maintenance Initiative or Capital Project"
+          >
+            Move to Program
+          </button>
+        )}
+        {canEditRequest && (
+          <button
+            type="button"
+            onClick={() => setIsEditing(true)}
+            style={footerPrimaryBtn(false)}
+          >
+            Edit
+          </button>
+        )}
+        {canRunTriage && (
+          <button
+            type="button"
+            onClick={() => setTriageOpen(true)}
+            style={{
+              padding: '8px 16px',
+              background: colors.green,
+              color: colors.darkestGray,
+              border: 'none',
+              borderRadius: 4,
+              cursor: 'pointer',
+              fontWeight: 600,
+            }}
+            title="Mark this request as triaged and route it forward"
+          >
+            Complete Triage
+          </button>
+        )}
+        {canCancel && (
+          <button
+            type="button"
+            onClick={() => setCancelOpen(true)}
+            style={{
+              padding: '8px 16px',
+              background: '#FFFFFF',
+              color: '#FFAC0F',
+              border: '1px solid #FFAC0F',
+              borderRadius: 4,
+              cursor: 'pointer',
+              fontWeight: 600,
+            }}
+          >
+            Cancel Request
+          </button>
+        )}
+      </div>
+    </>
+  ) : (
+    <>
+      {/* Editing mode: Cancel (discard edits) stays left; Save stays right.
+          saveError sits between them, hard to miss. */}
+      <button
+        type="button"
+        disabled={isSaving}
+        onClick={cancelEdit}
+        style={{ ...footerSecondaryBtn, opacity: isSaving ? 0.6 : 1 }}
+      >
+        Cancel Edits
+      </button>
 
-    {canCancel && (
-  <button
-    type="button"
-    onClick={() => setCancelOpen(true)}
-    style={{
-      padding: '8px 16px',
-      background: '#FFFFFF',
-      color: '#FFAC0F',
-      border: '1px solid #FFAC0F',
-      borderRadius: 4,
-      cursor: 'pointer',
-      fontWeight: 600,
-    }}
-  >
-    Cancel Request
-  </button>
-)}
-  </>
-) : (
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        {saveError && (
+          <div
+            style={{ color: '#9B1C1C', fontSize: '0.85em' }}
+            role="alert"
+          >
+            ⚠️ {saveError}
+          </div>
+        )}
+        <button
+          type="button"
+          disabled={isSaving || !hasUnsavedChanges}
+          onClick={handleSave}
+          style={footerPrimaryBtn(isSaving || !hasUnsavedChanges)}
+        >
+          {isSaving ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+    </>
+  )}
+</footer>
 
-            <>
-              {saveError && (
-                <div style={{
-                  flex: '1 1 auto', color: '#9B1C1C',
-                  fontSize: '0.85em', alignSelf: 'center',
-                }} role="alert">
-                  ⚠️ {saveError}
-                </div>
-              )}
-              <button type="button" disabled={isSaving} onClick={cancelEdit}
-                style={{ ...footerSecondaryBtn, opacity: isSaving ? 0.6 : 1 }}>
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={isSaving || !hasUnsavedChanges}
-                onClick={handleSave}
-                style={footerPrimaryBtn(isSaving || !hasUnsavedChanges)}
-              >
-                {isSaving ? 'Saving…' : 'Save'}
-              </button>
-            </>
-          )}
-        </footer>
       </aside>
 
-      <ConfirmModal
-        isOpen={isDiscardConfirmOpen}
-        title="Discard unsaved changes?"
-        confirmLabel="Discard"
-        confirmVariant="danger"
-        onCancel={() => setIsDiscardConfirmOpen(false)}
-        onConfirm={confirmDiscard}
-        message={<>You have unsaved edits to this request. If you close now, those changes will be lost.</>}
-      />
+<ConfirmModal
+  isOpen={isDiscardConfirmOpen}
+  title="Discard unsaved changes?"
+  confirmLabel="Discard"
+  confirmVariant="danger"
+  onCancel={() => {
+    setIsDiscardConfirmOpen(false)
+    setDiscardIntent(null)
+  }}
+  onConfirm={confirmDiscard}
+  message={
+    discardIntent === 'close' ? (
+      <>You have unsaved edits to this request. If you close the panel now, those changes will be lost.</>
+    ) : (
+      <>You have unsaved edits to this request. If you cancel editing now, those changes will be lost.</>
+    )
+  }
+/>
       <MoveToInitiativeModal
   isOpen={isMoveModalOpen}
   requestIdLabel={request.requestId}
@@ -786,25 +968,28 @@ function Section({ title, defaultOpen = true, children }: SectionProps) {
   const [open, setOpen] = useState(defaultOpen)
   return (
     <section style={{
-      marginBottom: '1rem',
+      marginBottom: '0.5rem',
       border: `1px solid ${colors.lightGray}`, borderRadius: 6, background: colors.white,
     }}>
       <button type="button" onClick={() => setOpen((x) => !x)}
         style={{
           width: '100%', textAlign: 'left',
           background: colors.lightestGray, color: colors.darkestGray,
-          border: 'none', padding: '0.5rem 0.75rem',
+          border: 'none', padding: '0.35rem 0.75rem',
           fontWeight: 700, cursor: 'pointer', borderRadius: '6px 6px 0 0',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          lineHeight: 1.2,
         }}>
         <span>{title}</span>
         <span style={{ color: colors.darkGray, fontWeight: 400 }}>{open ? '▾' : '▸'}</span>
       </button>
       {open && (
         <div style={{
-          padding: '0.5rem 0.75rem',
+          padding: '0.4rem 0.75rem',
           display: 'grid', gridTemplateColumns: '1fr 1fr',
-          gap: '0.4rem 1.5rem', fontSize: '0.9em', //was gap: '0.4rem 1rem'
+          gap: '0.3rem 1rem',
+          fontSize: '0.9em',
+          lineHeight: 1.25,
         }}>
           {children}
         </div>
@@ -823,14 +1008,32 @@ function Field({ label, value, wide, helperText }: FieldProps) {
   const display = value === null || value === undefined || value === '' ? '—' : String(value)
   return (
     <div style={{ gridColumn: wide ? '1 / -1' : 'auto' }}>
-      <div style={{ color: colors.darkGray, fontSize: '0.75em', textTransform: 'uppercase' }}>
+      <div style={{
+        color: colors.darkGray,
+        fontSize: '0.7em',
+        textTransform: 'uppercase',
+        lineHeight: 1.1,
+        letterSpacing: '0.03em',
+      }}>
         {label}
       </div>
-      <div style={{ color: colors.darkestGray, wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
+      <div style={{
+        color: colors.darkestGray,
+        wordBreak: 'break-word',
+        whiteSpace: 'pre-wrap',
+        lineHeight: 1.25,
+      }}>
         {display}
       </div>
       {helperText && (
-        <div style={{ color: colors.darkGray, fontSize: '0.72em', marginTop: 2 }}>{helperText}</div>
+        <div style={{
+          color: colors.darkGray,
+          fontSize: '0.7em',
+          marginTop: 1,
+          lineHeight: 1.15,
+        }}>
+          {helperText}
+        </div>
       )}
     </div>
   )
