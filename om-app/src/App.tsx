@@ -7,11 +7,11 @@ import {
   type OmRequest,
 } from './services/requestService'
 import { WorkOrderWithRequests } from './components/WorkOrderWithRequests'
-import { RequestRow } from './components/RequestRow'
 import { CreateWorkOrderModal } from './components/CreateWorkOrderModal'
 import { WorkOrderDetailPanel } from './components/WorkOrderDetailPanel'
 import { RequestDetailPanel } from './components/RequestDetailPanel'
 import { ProgramAssignmentsView } from './components/ProgramAssignmentsView'
+import { RequestStatusTabs, type RequestStatusTab, SELECTABLE_TAB } from './components/RequestStatusTabs'
 import { loadDomains } from './services/domainService'
 import {
   getWorkOrders,
@@ -68,6 +68,7 @@ export default function App() {
   const [detailRequest, setDetailRequest] = useState<OmRequest | null>(null)
   const [detailWorkOrder, setDetailWorkOrder] = useState<OmWorkOrder | null>(null)
   const [activeView, setActiveView] = useState<'work' | 'programs'>('work')
+  const [activeRequestTab, setActiveRequestTab] = useState<RequestStatusTab>('New')
  
   // ---- Data loading ----
 
@@ -354,59 +355,58 @@ return (
 {unassignedRequests.length === 0 ? (
   <em style={{ color: colors.darkGray }}>No unassigned requests.</em>
 ) : (
-  <ul style={{ listStyle: 'none', padding: 0, margin: '0.5rem 0 0' }}>
-
-{[...unassignedRequests]
-  .sort((a, b) => (a.createdDate ?? 0) - (b.createdDate ?? 0))
-  .map((req) => (
-  <RequestRow
-        key={req.objectId}
-        request={req}
-        isSelected={selectedRequestIds.includes(req.objectId)}
-        onToggleSelect={toggleRequest}
-        onOpenRequest={setDetailRequest}
-      />
-    ))}
-  </ul>
+  <RequestStatusTabs
+    requests={unassignedRequests}
+    selectedRequestIds={selectedRequestIds}
+    onToggleSelect={toggleRequest}
+    onOpenRequest={setDetailRequest}
+    onActiveTabChange={setActiveRequestTab}
+  />
 )}
 
-        <div style={{ textAlign: 'center', marginTop: '0.75rem' }}>
-          <button
-            onClick={handleAssign}
-            disabled={!canAssign}
-            style={canAssign ? styles.successButton : styles.disabledButton}
-            title={
-              noAssignableWorkOrders
-                ? 'No assignable work orders. Create one first.'
-                : !selectedWorkOrderId
-                ? 'Pick a work order'
-                : !selectedWoIsAssignable
-                ? 'Selected work order is closed'
-                : selectedRequestIds.length === 0
-                ? 'Pick at least one request'
-                : ''
-            }
-          >
-            Assign Selected to Selected Work Order
-          </button>
-          
-  <button
-    type="button"
-    disabled={!canCreateFromSelection}
-    onClick={() => setModalMode('from-selection')}
-    style={canCreateFromSelection ? styles.primaryButton : styles.disabledButton}
-    title={
-      selectedRequestIds.length === 0
-        ? 'Select at least one request'
-        : selectedDistricts.length > 1
-        ? 'Selected requests must all be in the same service area'
-        : ''
-    }
-  >
-    + Create New Work Order from Selection
-  </button>
+{/*
+  Assign-action buttons only render when the user is viewing the
+  'Ready for Work Order' tab. Requests in other statuses are not
+  eligible for WO assignment, so the buttons are meaningless there.
+*/}
+{activeRequestTab === SELECTABLE_TAB && (
+  <div style={{ textAlign: 'center', marginTop: '0.75rem' }}>
+    <button
+      onClick={handleAssign}
+      disabled={!canAssign}
+      style={canAssign ? styles.successButton : styles.disabledButton}
+      title={
+        noAssignableWorkOrders
+          ? 'No assignable work orders. Create one first.'
+          : !selectedWorkOrderId
+          ? 'Pick a work order'
+          : !selectedWoIsAssignable
+          ? 'Selected work order is closed'
+          : selectedRequestIds.length === 0
+          ? 'Pick at least one request'
+          : ''
+      }
+    >
+      Assign Selected to Selected Work Order
+    </button>
 
-        </div>
+    <button
+      type="button"
+      disabled={!canCreateFromSelection}
+      onClick={() => setModalMode('from-selection')}
+      style={canCreateFromSelection ? styles.primaryButton : styles.disabledButton}
+      title={
+        selectedRequestIds.length === 0
+          ? 'Select at least one request'
+          : selectedDistricts.length > 1
+          ? 'Selected requests must all be in the same service area'
+          : ''
+      }
+    >
+      + Create New Work Order from Selection
+    </button>
+  </div>
+)}
 
         {noAssignableWorkOrders && (
           <div style={styles.warningText}>
