@@ -51,11 +51,12 @@ export function WorkOrderWithRequests({
     }
   }
 
-  return (
+
+return (
     <div
       style={{
-        marginBottom: '0.75rem',
-        padding: '0.75rem 1rem',
+        marginBottom: '0.4rem',
+        padding: '0.5rem 0.75rem',
         background: colors.white,
         border: `1px solid ${isSelected ? colors.blue : colors.lightGray}`,
         borderLeft: `4px solid ${isSelected ? colors.blue : colors.lightGray}`,
@@ -63,135 +64,167 @@ export function WorkOrderWithRequests({
         boxShadow: isSelected ? `0 0 0 2px ${colors.blue}22` : 'none',
         opacity: isAssignable ? 1 : 0.65,
         transition: 'border-color 0.15s, box-shadow 0.15s',
+        lineHeight: 1.3,
       }}
     >
-      {/* ===== Header row: radio + work order summary ===== */}
-      <label
-        style={{
-          display: 'block',
-          cursor: isAssignable ? 'pointer' : 'not-allowed',
-          color: colors.darkestGray,
-        }}
-      >
-        <input
-          type="radio"
-          name="workOrder"
-          checked={isSelected}
-          disabled={!isAssignable}
-          onClick={() => {
-            if (isSelected) onSelect(null)   // toggle off
+      {/* ===== Header: radio + WO summary (2 lines) + Delete (top-right) ===== */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 6,
+            flex: '1 1 auto',
+            minWidth: 0,
+            cursor: isAssignable ? 'pointer' : 'not-allowed',
+            color: colors.darkestGray,
           }}
-          onChange={() => onSelect(workOrder.objectId)}
-          style={{ accentColor: colors.blue, marginRight: 6 }}
-        />
-        
-<button
-  type="button"
-  onClick={(e) => {
-    e.preventDefault()        // don't trigger the surrounding <label>'s radio
-    e.stopPropagation()
-    onOpenWorkOrder(workOrder)
-  }}
-  style={styles.linkButton}
-  title="Open work order detail panel"
->
-  {workOrder.workOrderId}
-</button>
-
-        {' · '}{workOrder.district ?? '—'}
-        {' · '}{workOrder.urgency ?? '—'}
-        {' · '}
-        <StatusPill status={workOrder.workOrderStatus} />
-        {' · '}{workOrder.workOrderTitle ?? 'Untitled'}
-        {!isAssignable && (
-          <span style={{ marginLeft: '0.5rem', color: colors.darkGray, fontSize: '0.85em' }}>
-            (closed — no new assignments)
-          </span>
-        )}
-      </label>
-
-      {/* ===== Assigned requests block ===== */}
-      <div style={{ marginLeft: '1.75rem', marginTop: '0.5rem' }}>
-        <div style={{ color: colors.darkGray, fontSize: '0.85em', fontStyle: 'italic' }}>
-          Assigned Requests ({assignedRequests.length})
-        </div>
-
-        {assignedRequests.length === 0 ? (
-          <div style={{ color: colors.gray, fontSize: '0.9em', fontStyle: 'italic' }}>
-            (none)
-          </div>
-        ) : (
-          <ul style={{ listStyle: 'none', padding: 0, margin: '0.35rem 0 0' }}>
-{assignedRequests.map((req) => {
-  const requestModifiable = isRequestModifiable(req)
-  const woLocked = isWorkOrderLocked(workOrder)
-  const canUnassign = requestModifiable && !woLocked
-  return (
-    <li
-      key={req.objectId}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '0.25rem 0.5rem',
-        fontSize: '0.9em',
-        color: colors.darkestGray,
-        borderBottom: `1px solid ${colors.lightestGray}`,
-      }}
-    >
-      <span style={{ flex: 1 }}>
-        <button
-          type="button"
-          onClick={() => onOpenRequest(req)}
-          style={styles.linkButton}
-          title="Open request detail panel"
         >
-          {req.requestId ?? '(no ID)'}
-        </button>
-        {' · '}{req.urgency ?? '—'}
-        {' · '}{req.status ?? '—'}
-        {' · '}{req.requestTitle ?? 'Untitled'}
-      </span>
-      <button
-        type="button"
-        disabled={!canUnassign}
-        title={
-          woLocked
-            ? `This work order is ${workOrder.workOrderStatus} — unassign is locked.`
-            : !requestModifiable
-            ? 'Closed/canceled requests cannot be unassigned'
-            : 'Unassign this request'
-        }
-        onClick={() => onUnassignRequest(req.objectId)}
-        style={canUnassign ? unassignButton : unassignButtonDisabled}
-      >
-        Unassign
-      </button>
-    </li>
-  )
-})}
-          </ul>
-        )}
-      </div>
+          <input
+            type="radio"
+            name="workOrder"
+            checked={isSelected}
+            disabled={!isAssignable}
+            onClick={() => {
+              if (isSelected) onSelect(null) // toggle off
+            }}
+            onChange={() => onSelect(workOrder.objectId)}
+            style={{ accentColor: colors.blue, marginTop: 2, flex: '0 0 auto' }}
+          />
 
-      {/* ===== Footer row: destructive actions ===== */}
-      <div
-        style={{
-          marginTop: '0.75rem',
-          paddingTop: '0.5rem',
-          borderTop: `1px solid ${colors.lightestGray}`,
-          display: 'flex',
-          justifyContent: 'flex-end',
-        }}
-      >
+          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: '1 1 auto' }}>
+            {/* Line 1: WO ID · District · Urgency · Status */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                flexWrap: 'wrap',
+                fontSize: '0.95em',
+              }}
+            >
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  onOpenWorkOrder(workOrder)
+                }}
+                style={{ ...styles.linkButton, fontWeight: 700 }}
+                title="Open work order detail panel"
+              >
+                {workOrder.workOrderId}
+              </button>
+              <span style={{ color: colors.darkGray }}>·</span>
+              <span>{workOrder.district ?? '—'}</span>
+              <span style={{ color: colors.darkGray }}>·</span>
+              <span>{workOrder.urgency ?? '—'}</span>
+              <span style={{ color: colors.darkGray }}>·</span>
+              <StatusPill status={workOrder.workOrderStatus} />
+              {!isAssignable && (
+                <span style={{ color: colors.darkGray, fontSize: '0.85em' }}>
+                  (closed — no new assignments)
+                </span>
+              )}
+            </div>
+
+            {/* Line 2: Title (truncates with ellipsis if too long) */}
+            <div
+              style={{
+                fontSize: '0.9em',
+                color: colors.darkestGray,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+              title={workOrder.workOrderTitle ?? 'Untitled'}
+            >
+              {workOrder.workOrderTitle ?? 'Untitled'}
+            </div>
+          </div>
+        </label>
+
+        {/* Delete button — top-right of card. Compact, icon-style. */}
         <button
           type="button"
           onClick={() => setIsConfirmOpen(true)}
           style={deleteButton}
           title="Soft-delete this work order. Attached requests will revert to Unassigned."
+          aria-label="Delete work order"
         >
-          Delete Work Order
+          🗑
         </button>
+      </div>
+
+      {/* ===== Assigned requests block =====
+          When 0 requests, render only the header line ("Assigned Requests (0)") —
+          no extra "(none)" placeholder. Saves a row per empty card. */}
+      <div style={{ marginLeft: '1.5rem', marginTop: '0.3rem' }}>
+        <div style={{ color: colors.darkGray, fontSize: '0.8em', fontStyle: 'italic' }}>
+          Assigned Requests ({assignedRequests.length})
+        </div>
+
+        {assignedRequests.length > 0 && (
+          <ul style={{ listStyle: 'none', padding: 0, margin: '0.2rem 0 0' }}>
+            {assignedRequests.map((req) => {
+              const requestModifiable = isRequestModifiable(req)
+              const woLocked = isWorkOrderLocked(workOrder)
+              const canUnassign = requestModifiable && !woLocked
+              return (
+                <li
+                  key={req.objectId}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '0.15rem 0.4rem',
+                    fontSize: '0.85em',
+                    color: colors.darkestGray,
+                    borderBottom: `1px solid ${colors.lightestGray}`,
+                  }}
+                >
+                  <span
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                    title={`${req.requestId ?? '(no ID)'} · ${req.urgency ?? '—'} · ${req.status ?? '—'} · ${req.requestTitle ?? 'Untitled'}`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => onOpenRequest(req)}
+                      style={styles.linkButton}
+                      title="Open request detail panel"
+                    >
+                      {req.requestId ?? '(no ID)'}
+                    </button>
+                    {' · '}{req.urgency ?? '—'}
+                    {' · '}{req.status ?? '—'}
+                    {' · '}{req.requestTitle ?? 'Untitled'}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={!canUnassign}
+                    title={
+                      woLocked
+                        ? `This work order is ${workOrder.workOrderStatus} — unassign is locked.`
+                        : !requestModifiable
+                        ? 'Closed/canceled requests cannot be unassigned'
+                        : 'Unassign this request'
+                    }
+                    onClick={() => onUnassignRequest(req.objectId)}
+                    style={canUnassign ? unassignButton : unassignButtonDisabled}
+                  >
+                    Unassign
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        )}
       </div>
 
       {/* ===== Confirm modal ===== */}
@@ -257,10 +290,16 @@ const deleteButton = {
   color: '#B00020',
   border: `1px solid #B00020`,
   borderRadius: 4,
-  padding: '0.25rem 0.7rem',
-  fontSize: '0.85em',
-  fontWeight: 600,
+  width: 26,
+  height: 26,
+  padding: 0,
+  fontSize: '0.9em',
   cursor: 'pointer',
+  flex: '0 0 auto',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  lineHeight: 1,
 } as const
 
 function StatusPill({ status }: { status: string | null | undefined }) {
