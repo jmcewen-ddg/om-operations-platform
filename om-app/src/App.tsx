@@ -7,6 +7,7 @@ import {
   type OmRequest,
 } from './services/requestService'
 import { WorkOrderWithRequests } from './components/WorkOrderWithRequests'
+import { RequestRow } from './components/RequestRow'
 import { CreateWorkOrderModal } from './components/CreateWorkOrderModal'
 import { WorkOrderDetailPanel } from './components/WorkOrderDetailPanel'
 import { RequestDetailPanel } from './components/RequestDetailPanel'
@@ -350,35 +351,24 @@ return (
             </span>
         </div>
 
-        {unassignedRequests.length === 0 ? (
-          <em style={{ color: colors.darkGray }}>No unassigned requests.</em>
-        ) : (
-          <ul style={{ listStyle: 'none', padding: 0 }}>
-            {unassignedRequests.map((req) => (
-              <li key={req.objectId} style={{ padding: '0.25rem 0', color: colors.darkestGray }}>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={selectedRequestIds.includes(req.objectId)}
-                    onChange={() => toggleRequest(req.objectId)}
-                  />
-                  {' '}
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setDetailRequest(req)}
-                  style={styles.linkButton}
-                  title="Open request detail panel"
-                >
-                  {req.requestId ?? '(no ID)'}
-                </button>
-                {' · '}{req.urgency ?? '—'}
-                {' · '}{req.status ?? '—'}
-                {' · '}{req.requestTitle ?? 'Untitled'}
-              </li>
-            ))}
-          </ul>
-        )}
+{unassignedRequests.length === 0 ? (
+  <em style={{ color: colors.darkGray }}>No unassigned requests.</em>
+) : (
+  <ul style={{ listStyle: 'none', padding: 0, margin: '0.5rem 0 0' }}>
+
+{[...unassignedRequests]
+  .sort((a, b) => (a.createdDate ?? 0) - (b.createdDate ?? 0))
+  .map((req) => (
+  <RequestRow
+        key={req.objectId}
+        request={req}
+        isSelected={selectedRequestIds.includes(req.objectId)}
+        onToggleSelect={toggleRequest}
+        onOpenRequest={setDetailRequest}
+      />
+    ))}
+  </ul>
+)}
 
         <div style={{ textAlign: 'center', marginTop: '0.75rem' }}>
           <button
