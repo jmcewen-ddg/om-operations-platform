@@ -28,6 +28,7 @@ export type OmWorkOrder = {
   actualEndDate: number | null
   completedDate: number | null
   closedDate: number | null
+  canceledDate: number | null
 
   // Effort / cost
   estimatedHours: number | null
@@ -91,6 +92,7 @@ const FIELD_MAP: Partial<Record<keyof OmWorkOrder, string>> = {
   // Close-out
   completionNotes:    'completion_notes',
   cancellationReason: 'cancellation_reason',
+  canceledDate: 'canceled_date',
 }
 
 const workOrderLayer = new FeatureLayer({
@@ -147,6 +149,7 @@ return result.features.map((feature) => {
       actualHours:    a.actual_hours ?? null,
       estimatedCost:  a.estimated_cost ?? null,
       actualCost:     a.actual_cost ?? null,
+      canceledDate:       a.canceled_date ?? null,
 
       // Close-out
       completionNotes:    a.completion_notes ?? null,
@@ -333,4 +336,36 @@ export async function updateWorkOrder(
     console.error('updateWorkOrder failed. Full result:', result)
     throw new Error(updateResult?.error?.message ?? 'Failed to update work order.')
   }
+}
+
+/**
+ * Cancel a work order: sets work_order_status to "Canceled" and writes
+ * the cancellation reason. Used by the Cancel Work Order modal in
+ * WorkOrderDetailPanel. Returns the patch that was applied so the caller
+ * can merge it into local state.
+ *
+ * NOTE: Attached requests remain attached — their request_assignment
+ * still says "Assigned to Work Order". A future cleanup pass (or SQL
+ * trigger) may want to unassign them when the WO is canceled. For now,
+ * the matrix shows it as a closed state and operators can manually
+ * reassign if needed.
+ */
+export async function cancelWorkOrder(
+  objectId: number,
+  reason: string,
+): Promise<Partial<OmWorkOrder>> {
+  const trimmed = reason.trim()
+  if (!trimmed) {
+    throw new Error('Cancellation reason is required.')
+  }
+
+  const now = Date.now()
+  const patch: Partial<OmWorkOrder> = {
+    workOrderStatus: 'Canceled',
+    cancellationReason: trimmed,
+    canceledDate: now,
+  }
+
+  await updateWorkOrder(objectId, patch)
+  return patch
 }

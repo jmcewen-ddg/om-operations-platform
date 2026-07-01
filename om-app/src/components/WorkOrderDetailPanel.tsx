@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { updateWorkOrder, type OmWorkOrder } from '../services/workOrderService'
+import { updateWorkOrder, cancelWorkOrder, type OmWorkOrder } from '../services/workOrderService'
 import { colors } from '../theme'
 import { ConfirmModal } from './ConfirmModal'
 import { loadDomains, type DomainMap } from '../services/domainService'
@@ -8,6 +8,11 @@ import {
   getAllowedWorkOrderTransitions,
   canEditWorkOrderStatus,
 } from '../utils/workOrderStatusHelpers'
+import { useUser } from '../lib/userContext'
+import { atLeast } from '../lib/roles'
+import { workOrderMatrix } from '../domain/workOrder/workOrderMatrix'
+import { MatrixFieldProvider } from '../lib/matrixFieldContext'
+import { CancelWorkOrderModal } from './CancelWorkOrderModal'
 
 // Lightweight inline EditableField to avoid a missing-module build error.
 // Only implements the input shapes used by this panel.
@@ -98,6 +103,8 @@ const STATUS_DATE_STAMPS: Partial<Record<string, keyof OmWorkOrder>> = {
 export function WorkOrderDetailPanel({
   workOrder, onClose, onWorkOrderUpdated, onRequestDelete,
 }: Props) {
+  const user = useUser()
+
   // ---- One draft object holds ALL pending edits ----
   const [draft, setDraft] = useState<Partial<OmWorkOrder>>({})
   const [isEditing, setIsEditing] = useState(false)
@@ -106,8 +113,14 @@ export function WorkOrderDetailPanel({
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [isDiscardConfirmOpen, setIsDiscardConfirmOpen] = useState(false)
+  const [cancelOpen, setCancelOpen] = useState(false)
 
   const hasUnsavedChanges = isEditing && Object.keys(draft).length > 0
+
+  const canCancel =
+    atLeast(user.role, 'tier2Triager') &&
+    workOrder?.workOrderStatus !== 'Canceled' &&
+    workOrder?.workOrderStatus !== 'Closed'
 
   // Helper: get the live value for any field (draft override → saved value).
   function v<K extends keyof OmWorkOrder>(key: K): OmWorkOrder[K] | null {
@@ -255,7 +268,15 @@ export function WorkOrderDetailPanel({
         </header>
 
         {/* ===== Body ===== */}
-        <div style={{ flex: '1 1 auto', overflowY: 'auto', padding: '1rem 1.25rem', color: colors.darkestGray }}>
+        
+<div style={{ flex: '1 1 auto', overflowY: 'auto', padding: '1rem 1.25rem', color: colors.darkestGray }}>
+  <MatrixFieldProvider
+    matrix={workOrderMatrix}
+    role={user.role}
+    status={workOrder.workOrderStatus ?? 'Draft'}
+    isEditing={isEditing}
+  >
+
 
           {/* --------- Classification --------- */}
           <Section title="Classification" defaultOpen>
@@ -421,6 +442,7 @@ export function WorkOrderDetailPanel({
             <Field label="Deleted Date"     value={formatDate(workOrder.deletedDate)} />
             <Field label="Deleted By"       value={workOrder.deletedBy} />
           </Section>
+          </MatrixFieldProvider>
         </div>
 
         {/* ===== Footer ===== */}
@@ -443,6 +465,26 @@ export function WorkOrderDetailPanel({
                   Delete
                 </button>
               )}
+              
+{canCancel && (
+      <button
+        type="button"
+        onClick={() => setCancelOpen(true)}
+        style={{
+          padding: '0.4rem 0.9rem',
+          background: '#FFFFFF',
+          color: '#FFAC0F',
+          border: '1px solid #FFAC0F',
+          borderRadius: 4,
+          cursor: 'pointer',
+          fontWeight: 600,
+        }}
+        title="Cancel this work order"
+      >
+        Cancel Work Order
+      </button>
+    )}
+
               <button type="button" onClick={attemptClose} style={secondaryBtn}>Close</button>
               <button type="button" onClick={() => setIsEditing(true)} style={primaryBtn(false)}>Edit</button>
             </>
@@ -471,6 +513,7 @@ export function WorkOrderDetailPanel({
         </footer>
       </aside>
 
+
       <ConfirmModal
         isOpen={isDiscardConfirmOpen}
         title="Discard unsaved changes?"
@@ -479,6 +522,18 @@ export function WorkOrderDetailPanel({
         onCancel={() => setIsDiscardConfirmOpen(false)}
         onConfirm={confirmDiscard}
         message={<>You have unsaved edits to this work order. If you close now, those changes will be lost.</>}
+      />
+
+      <CancelWorkOrderModal
+        isOpen={cancelOpen}
+        onClose={() => setCancelOpen(false)}
+        onConfirm={async (reason: string) => {
+          const patch = await cancelWorkOrder(workOrder.objectId, reason)
+          const updated: OmWorkOrder = { ...workOrder, ...patch }
+          onWorkOrderUpdated?.(updated)
+          setCancelOpen(false)
+        }}
+        workOrderId={workOrder.workOrderId ?? '(no ID)'}
       />
     </>
   )
