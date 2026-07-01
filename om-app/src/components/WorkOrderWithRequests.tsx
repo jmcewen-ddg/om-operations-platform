@@ -143,17 +143,6 @@ return (
             </div>
           </div>
         </label>
-
-        {/* Delete button — top-right of card. Compact, icon-style. */}
-        <button
-          type="button"
-          onClick={() => setIsConfirmOpen(true)}
-          style={deleteButton}
-          title="Soft-delete this work order. Attached requests will revert to Unassigned."
-          aria-label="Delete work order"
-        >
-          🗑
-        </button>
       </div>
 
       {/* ===== Assigned requests block =====
@@ -283,23 +272,6 @@ const unassignButtonDisabled = {
   background: colors.lightGray,
   color: colors.darkGray,
   cursor: 'not-allowed',
-} as const
-
-const deleteButton = {
-  background: 'transparent',
-  color: '#B00020',
-  border: `1px solid #B00020`,
-  borderRadius: 4,
-  width: 26,
-  height: 26,
-  padding: 0,
-  fontSize: '0.9em',
-  cursor: 'pointer',
-  flex: '0 0 auto',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  lineHeight: 1,
 } as const
 
 function StatusPill({ status }: { status: string | null | undefined }) {
