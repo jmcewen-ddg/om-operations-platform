@@ -13,6 +13,7 @@ import { atLeast } from '../lib/roles'
 import { workOrderMatrix } from '../domain/workOrder/workOrderMatrix'
 import { MatrixFieldProvider } from '../lib/matrixFieldContext'
 import { CancelWorkOrderModal } from './CancelWorkOrderModal'
+import { DeleteWorkOrderModal } from './DeleteWorkOrderModal'
 
 // Lightweight inline EditableField to avoid a missing-module build error.
 // Only implements the input shapes used by this panel.
@@ -114,6 +115,8 @@ export function WorkOrderDetailPanel({
   const [saveError, setSaveError] = useState<string | null>(null)
   const [isDiscardConfirmOpen, setIsDiscardConfirmOpen] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+
 
   const hasUnsavedChanges = isEditing && Object.keys(draft).length > 0
 
@@ -447,70 +450,81 @@ export function WorkOrderDetailPanel({
 
         {/* ===== Footer ===== */}
         <footer
-          style={{
-            flex: '0 0 auto', padding: '0.75rem 1.25rem',
-            borderTop: `1px solid ${colors.lightGray}`, background: colors.lightestGray,
-            display: 'flex', justifyContent: 'flex-end', gap: 8,
-          }}
-        >
-          {!isEditing ? (
-            <>
-              {onRequestDelete && (
-                <button
-                  type="button"
-                  onClick={() => onRequestDelete(workOrder)}
-                  style={dangerBtn}
-                  title="Soft-delete this work order"
-                >
-                  Delete
-                </button>
-              )}
-              
-{canCancel && (
-      <button
-        type="button"
-        onClick={() => setCancelOpen(true)}
-        style={{
-          padding: '0.4rem 0.9rem',
-          background: '#FFFFFF',
-          color: '#FFAC0F',
-          border: '1px solid #FFAC0F',
-          borderRadius: 4,
-          cursor: 'pointer',
-          fontWeight: 600,
-        }}
-        title="Cancel this work order"
-      >
-        Cancel Work Order
-      </button>
-    )}
+  style={{
+    flex: '0 0 auto', padding: '0.75rem 1.25rem',
+    borderTop: `1px solid ${colors.lightGray}`, background: colors.lightestGray,
+    display: 'flex', justifyContent: 'space-between', gap: 8,
+  }}
+>
+  {!isEditing ? (
+    <>
+      {/* Left cluster: Close Panel */}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button type="button" onClick={attemptClose} style={secondaryBtn}>
+          Close Panel
+        </button>
+      </div>
 
-              <button type="button" onClick={attemptClose} style={secondaryBtn}>Close</button>
-              <button type="button" onClick={() => setIsEditing(true)} style={primaryBtn(false)}>Edit</button>
-            </>
-          ) : (
-            <>
-              {saveError && (
-                <div
-                  style={{ flex: '1 1 auto', color: '#9B1C1C', fontSize: '0.85em', alignSelf: 'center' }}
-                  role="alert"
-                >
-                  ⚠️ {saveError}
-                </div>
-              )}
-              <button
-                type="button" disabled={isSaving} onClick={cancelEdit}
-                style={{ ...secondaryBtn, opacity: isSaving ? 0.6 : 1 }}
-              >Cancel</button>
-              <button
-                type="button" disabled={isSaving || !hasUnsavedChanges} onClick={handleSave}
-                style={primaryBtn(isSaving || !hasUnsavedChanges)}
-              >
-                {isSaving ? 'Saving…' : 'Save'}
-              </button>
-            </>
-          )}
-        </footer>
+      {/* Right cluster: Delete · Cancel Work Order · Edit */}
+      <div style={{ display: 'flex', gap: 8 }}>
+        {onRequestDelete && (
+          <button
+            type="button"
+            onClick={() => setDeleteOpen(true)}
+            style={dangerBtn}
+            title="Soft-delete this work order"
+          >
+            Delete
+          </button>
+        )}
+
+        {canCancel && (
+          <button
+            type="button"
+            onClick={() => setCancelOpen(true)}
+            style={{
+              padding: '0.4rem 0.9rem',
+              background: '#FFFFFF',
+              color: '#FFAC0F',
+              border: '1px solid #FFAC0F',
+              borderRadius: 4,
+              cursor: 'pointer',
+              fontWeight: 600,
+            }}
+            title="Cancel this work order"
+          >
+            Cancel Work Order
+          </button>
+        )}
+
+        <button type="button" onClick={() => setIsEditing(true)} style={primaryBtn(false)}>
+          Edit
+        </button>
+      </div>
+    </>
+  ) : (
+    <>
+      {saveError && (
+        <div
+          style={{ flex: '1 1 auto', color: '#9B1C1C', fontSize: '0.85em', alignSelf: 'center' }}
+          role="alert"
+        >
+          ⚠️ {saveError}
+        </div>
+      )}
+      <button
+        type="button" disabled={isSaving} onClick={cancelEdit}
+        style={{ ...secondaryBtn, opacity: isSaving ? 0.6 : 1 }}
+      >Cancel</button>
+      <button
+        type="button" disabled={isSaving || !hasUnsavedChanges} onClick={handleSave}
+        style={primaryBtn(isSaving || !hasUnsavedChanges)}
+      >
+        {isSaving ? 'Saving…' : 'Save'}
+      </button>
+    </>
+  )}
+</footer>
       </aside>
 
 
@@ -535,6 +549,17 @@ export function WorkOrderDetailPanel({
         }}
         workOrderId={workOrder.workOrderId ?? '(no ID)'}
       />
+      
+<DeleteWorkOrderModal
+  isOpen={deleteOpen}
+  onClose={() => setDeleteOpen(false)}
+  onConfirm={() => {
+    setDeleteOpen(false)
+    if (onRequestDelete) onRequestDelete(workOrder)
+  }}
+  workOrderId={workOrder.workOrderId ?? ''}
+/>
+
     </>
   )
 }
