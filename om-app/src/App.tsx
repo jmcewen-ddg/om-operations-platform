@@ -329,7 +329,6 @@ return (
                 isAssignable={assignable}
                 onSelect={setSelectedWorkOrderId}
                 onUnassignRequest={handleUnassign}
-                onDeleteWorkOrder={handleDeleteWorkOrder}
                 onOpenWorkOrder={setDetailWorkOrder}
                 onOpenRequest={setDetailRequest}
               />

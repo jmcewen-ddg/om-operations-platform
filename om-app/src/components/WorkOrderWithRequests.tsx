@@ -1,9 +1,6 @@
-import { useState } from 'react'
 import type { OmRequest } from '../services/requestService'
 import type { OmWorkOrder } from '../services/workOrderService'
 import { colors, styles } from '../theme'
-import { ConfirmModal } from './ConfirmModal'
-
 const CLOSED_REQUEST_STATUSES = ['Closed', 'Canceled']
 const isRequestModifiable = (req: OmRequest) =>
   !CLOSED_REQUEST_STATUSES.includes(req.status ?? '')
@@ -19,7 +16,6 @@ type Props = {
   isAssignable: boolean
   onSelect: (objectId: number | null) => void
   onUnassignRequest: (requestObjectId: number) => void
-  onDeleteWorkOrder: (workOrder: OmWorkOrder) => Promise<void>
   onOpenWorkOrder: (wo: OmWorkOrder) => void
   onOpenRequest: (request: OmRequest) => void
 }
@@ -31,26 +27,9 @@ export function WorkOrderWithRequests({
   isAssignable,
   onSelect,
   onUnassignRequest,
-  onDeleteWorkOrder,
   onOpenWorkOrder,
   onOpenRequest,
 }: Props) {
-  // ---- Local UI state for the delete confirmation ----
-  const [isConfirmOpen, setIsConfirmOpen] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
-
-  async function handleConfirmDelete() {
-    setIsDeleting(true)
-    try {
-      await onDeleteWorkOrder(workOrder)
-      setIsConfirmOpen(false)
-    } catch {
-      // Parent already surfaced the error message. Keep modal open so user can retry/cancel.
-    } finally {
-      setIsDeleting(false)
-    }
-  }
-
 
 return (
     <div
@@ -215,39 +194,6 @@ return (
           </ul>
         )}
       </div>
-
-      {/* ===== Confirm modal ===== */}
-      <ConfirmModal
-        isOpen={isConfirmOpen}
-        title="Delete this work order?"
-        confirmLabel="Delete Work Order"
-        confirmVariant="danger"
-        isWorking={isDeleting}
-        onCancel={() => setIsConfirmOpen(false)}
-        onConfirm={handleConfirmDelete}
-        message={
-          <>
-            <p style={{ margin: '0 0 0.5rem 0' }}>
-              You are about to soft-delete work order{' '}
-              <strong>{workOrder.workOrderId}</strong>.
-            </p>
-            {assignedRequests.length > 0 ? (
-              <p style={{ margin: 0 }}>
-                {assignedRequests.length === 1
-                  ? 'The 1 attached request will revert to Unassigned.'
-                  : `The ${assignedRequests.length} attached requests will revert to Unassigned.`}
-              </p>
-            ) : (
-              <p style={{ margin: 0, color: colors.darkGray }}>
-                No requests are currently attached.
-              </p>
-            )}
-            <p style={{ margin: '0.5rem 0 0 0', color: colors.darkGray, fontSize: '0.9em' }}>
-              Soft-deleted records are hidden from normal views but remain visible to admins.
-            </p>
-          </>
-        }
-      />
     </div>
   )
 }
