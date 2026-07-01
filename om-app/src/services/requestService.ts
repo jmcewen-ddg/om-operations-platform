@@ -3,6 +3,7 @@ import { applyEdits } from './arcgisRest'
 import { arcgisConfig } from '../config/arcgis'
 import { addRequestNote } from './requestNoteService'
 import { programLinks, type ProgramTarget } from '../config/programLinks'
+import { recomputeWorkOrderUrgency } from '../domain/workOrder/recomputeUrgency'
 
 /**
  * Maps TS OmRequest field names (camelCase) → REST field names (snake_case).
@@ -380,6 +381,52 @@ console.log('Mapped requests:', mappedRequests)
 return mappedRequests
 }
 
+/**
+ * Lean, purpose-built helper: fetch just the `urgency` field for all
+ * non-deleted requests currently attached to a given work order.
+ *
+ * Used by workOrderService.recomputeWorkOrderUrgency() to derive a WO's
+ * max urgency from its attached requests without paying the cost of
+ * mapping full OmRequest rows.
+ *
+ * @param workOrderGlobalId - WO GlobalID (unbraced, uppercase). The
+ *                            function wraps it in braces for the SDE
+ *                            GlobalID column format.
+ * @returns Array of urgency strings (or null) — one per attached request.
+ *          Empty array if the WO has no attached requests.
+ */
+export async function getRequestUrgenciesForWorkOrder(
+  workOrderGlobalId: string,
+): Promise<Array<string | null>> {
+  const token = await getArcGISTokenForUrl(REQUEST_LAYER_URL)
+
+  // SDE stores GlobalID with braces — match the wrapped form.
+  const woGuid = workOrderGlobalId.replace(/[{}]/g, '').toUpperCase()
+
+  const params = new URLSearchParams({
+    where:
+      `assigned_work_order_globalid = '{${woGuid}}' ` +
+      `AND (deleted IS NULL OR deleted = 'No')`,
+    outFields: 'urgency',
+    returnGeometry: 'false',
+    f: 'json',
+    token,
+  })
+
+  const response = await fetch(`${REQUEST_LAYER_URL}/query?${params.toString()}`)
+  const data = await response.json()
+
+  if (data.error) {
+    console.error('ArcGIS request-urgency query error:', data.error)
+    throw new Error(
+      data.error.message ?? 'Failed to query request urgencies for work order',
+    )
+  }
+
+  return (data.features ?? []).map(
+    (feature: any) => feature.attributes?.urgency ?? null,
+  )
+}
 
 export async function getMovedRequests(): Promise<OmRequest[]> {
   const token = await getArcGISTokenForUrl(REQUEST_LAYER_URL)
@@ -611,6 +658,14 @@ if (!workOrderGlobalId) {
     }
   }
 
+  // ---- Recompute WO urgency from all currently-attached requests.
+  //      Non-fatal: log and continue if it fails — the assignment itself succeeded.
+  try {
+    await recomputeWorkOrderUrgency(workOrderObjectId, workOrderGlobalId)
+  } catch (err) {
+    console.warn('assignRequestToWorkOrder: assignment succeeded but urgency recompute failed:', err)
+  }
+
   return updateData
 
 }
@@ -750,6 +805,17 @@ export async function unassignRequest(requestObjectId: number) {
       } else if (!woUpdateData.updateResults?.[0]?.success) {
         console.warn('WO revert returned non-success:', woUpdateData)
       }
+    }
+  }
+
+  // ---- Recompute WO urgency from all still-attached requests.
+  //      If this was the last request, computeMaxUrgency returns null and
+  //      the WO's urgency gets cleared. Non-fatal: log and continue.
+  if (workOrderObjectId !== null && woGuid) {
+    try {
+      await recomputeWorkOrderUrgency(workOrderObjectId, woGuid)
+    } catch (err) {
+      console.warn('unassignRequest: unassign succeeded but urgency recompute failed:', err)
     }
   }
 

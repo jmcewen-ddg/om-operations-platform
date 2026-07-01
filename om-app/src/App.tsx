@@ -19,6 +19,7 @@ import {
   softDeleteWorkOrder,
   type OmWorkOrder,
 } from './services/workOrderService'
+import { recomputeWorkOrderUrgency } from './domain/workOrder/recomputeUrgency'
 // import { DISTRICTS } from './constants/districts'
 import { colors, styles } from './theme'
 import { UserProvider } from './lib/userContext'
@@ -123,18 +124,18 @@ useEffect(() => {
   }
 
 async function handleCreateWorkOrder(districtCode: string) {
-  //const result = await createWorkOrder({ district: districtCode })
-  const result = await createWorkOrder({ district: districtCode, urgency: 'No Requests Assigned', work_order_id: 'PENDING' })
+  const result = await createWorkOrder({ district: districtCode })
   // If we're in from-selection mode, assign the selected requests to the new WO
-  if (modalMode === 'from-selection' && selectedRequestIds.length > 0) {
-    for (const reqId of selectedRequestIds) {
-      await assignRequestToWorkOrder(reqId, result.objectId)
-    }
-    setSelectedRequestIds([])
+if (modalMode === 'from-selection' && selectedRequestIds.length > 0) {
+  for (const reqId of selectedRequestIds) {
+    await assignRequestToWorkOrder(reqId, result.objectId)
   }
+  await recomputeWorkOrderUrgency(result.objectId, result.globalId)
+  setSelectedRequestIds([])
+}
   setModalMode(null)
   await loadAll()
-  setSelectedWorkOrderId(result.objectId) // auto-select the new WO
+  setSelectedWorkOrderId(result.objectId)
 }
 
   async function handleAssign() {

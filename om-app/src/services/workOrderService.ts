@@ -170,15 +170,16 @@ return result.features.map((feature) => {
 }
 
 export async function createWorkOrder(params: {
-  work_order_id: string
   district: string
   urgency?: string
 }): Promise<{ objectId: number; globalId: string }> {
-  const attributes = {
+  const attributes: Record<string, any> = {
     work_order_id: 'PENDING',
     district: params.district,
     work_order_status: 'Draft',
-    urgency: params.urgency ?? 'N/A',
+  }
+  if (params.urgency !== undefined) {
+    attributes.urgency = params.urgency
   }
 
   // applyEdits() handles auth via IdentityManager — no manual token plumbing
@@ -339,6 +340,58 @@ export async function updateWorkOrder(
 }
 
 /**
+ * Direct write of the `urgency` field on a single work order row.
+ *
+ * Bypasses FIELD_MAP intentionally — `urgency` is derived (not user-editable
+ * through the general update flow), but *something* has to persist the
+ * computed value. That "something" lives in the domain layer
+ * (see src/domain/workOrder/recomputeUrgency.ts) and delegates the actual
+ * write to this helper.
+ *
+ * Callers should NOT invoke this directly — go through the domain-layer
+ * recompute orchestrator instead so the value is computed correctly.
+ *
+ * @param objectId    - OBJECTID of the WO to update
+ * @param urgency     - New urgency value (null clears it)
+ */
+export async function writeWorkOrderUrgency(
+  objectId: number,
+  urgency: string | null,
+): Promise<void> {
+  if (!objectId) {
+    throw new Error('writeWorkOrderUrgency: objectId is required')
+  }
+
+  const attributes = {
+    OBJECTID: objectId,
+    urgency, // null clears the field
+  }
+
+  let result
+  try {
+    result = await workOrderLayer.applyEdits({
+      updateFeatures: [new Graphic({ attributes })],
+    })
+  } catch (err: any) {
+    console.error('writeWorkOrderUrgency applyEdits threw:', err)
+    throw new Error(
+      err?.details?.messages?.join('; ') ??
+        err?.details?.message ??
+        err?.message ??
+        'Failed to write work order urgency.',
+    )
+  }
+
+  const updateResult = result.updateFeatureResults?.[0]
+  if (!updateResult || updateResult.error) {
+    console.error('writeWorkOrderUrgency failed. Full result:', result)
+    throw new Error(
+      updateResult?.error?.message ?? 'Failed to write work order urgency.',
+    )
+  }
+}
+
+/**
  * Cancel a work order: sets work_order_status to "Canceled" and writes
  * the cancellation reason. Used by the Cancel Work Order modal in
  * WorkOrderDetailPanel. Returns the patch that was applied so the caller
@@ -368,4 +421,5 @@ export async function cancelWorkOrder(
 
   await updateWorkOrder(objectId, patch)
   return patch
+  
 }
