@@ -25,9 +25,9 @@ from ddg_github_helpers import (
 # ----------------------------------------------------------------------
 import os
 # use an environmental variable to store the pw
-GITHUB_PAT = os.environ["GITHUB_PAT"]  # fine-grained PAT, project + repo scope
+PUSH_PAT = os.environ["PUSH_PAT"]  # fine-grained PAT, project + repo scope
 # add githubt user account name.
-GITHUB_OWNER   = "[personalAccount]"  # personal account login
+OWNER   = "OWNER"  # personal account login
 PROJECT_NUMBER = 2
 
 # Field name on the board -> CSV column. Adjust if names differ.
